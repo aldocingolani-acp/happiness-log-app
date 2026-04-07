@@ -1,0 +1,17 @@
+{
+  "name": "Laboratorio della Felicita",
+  "short_name": "Felicita",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8f0df",
+  "theme_color": "#f36d5d",
+  "description": "PWA per registrare le quattro sfere giornaliere e calcolare ETA e IOTA.",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
