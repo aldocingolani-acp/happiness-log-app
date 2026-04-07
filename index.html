@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f36d5d" />
+    <meta
+      name="description"
+      content="PWA per misurare la felicita quotidiana con le formule eta e iota."
+    />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>Laboratorio della Felicita</title>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Laboratorio della felicita</p>
+          <h1>Eta oggi. Iota nel tempo.</h1>
+          <p class="hero-text">
+            Una PWA mobile-first per raccogliere i quattro voti della giornata,
+            calcolare il valore istantaneo e tener conto della memoria emotiva.
+          </p>
+        </div>
+        <div class="hero-badge">
+          <span class="badge-label">Seed iniziale</span>
+          <strong id="seed-summary">ETA 8.15 / IOTA 8.19</strong>
+          <span>Relazionale 9, Espressiva 7, Riflessiva 7.5, Virtuosa 8.5</span>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Cloud</p>
+              <h2>Supabase, login e sync</h2>
+            </div>
+          </div>
+          <div class="cloud-grid">
+            <div class="cloud-panel">
+              <p id="cloud-config-copy" class="builder-copy">
+                Configura `config.js` per attivare login, sync e reminder push.
+              </p>
+              <form id="auth-form" class="grid two-col">
+                <label class="field">
+                  <span>Email</span>
+                  <input
+                    id="auth-email"
+                    name="auth_email"
+                    type="email"
+                    placeholder="tuo@email.com"
+                  />
+                </label>
+                <div class="cloud-actions">
+                  <button id="auth-submit" class="primary-button" type="submit">
+                    Invia magic link
+                  </button>
+                </div>
+              </form>
+            </div>
+            <div class="cloud-panel">
+              <p id="auth-summary" class="builder-copy">
+                Modalita locale attiva. Nessun account collegato.
+              </p>
+              <div class="inline-actions cloud-inline">
+                <button id="sync-cloud" class="ghost-button" type="button">
+                  Sincronizza cloud
+                </button>
+                <button id="pull-cloud" class="ghost-button" type="button">
+                  Scarica cloud
+                </button>
+                <button id="logout-button" class="ghost-button" type="button">
+                  Logout
+                </button>
+              </div>
+              <p id="cloud-status" class="cloud-status"></p>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Profili</p>
+              <h2>Tu oggi, amici domani</h2>
+            </div>
+            <button id="toggle-profile-builder" class="ghost-button" type="button">
+              Nuovo profilo
+            </button>
+          </div>
+          <div id="profile-list" class="profile-list"></div>
+          <form id="profile-builder" class="profile-builder hidden">
+            <div class="grid two-col">
+              <label class="field">
+                <span>Nome profilo</span>
+                <input name="profileName" type="text" placeholder="Aldo" required />
+              </label>
+              <label class="field">
+                <span>Reminder serale</span>
+                <input name="reminderTime" type="time" value="23:00" />
+              </label>
+            </div>
+            <p class="builder-copy">
+              Dai un peso istintivo da 0 a 10 alle sfere. L'app lo normalizza in
+              percentuali per l'algoritmo ETA.
+            </p>
+            <div class="grid two-col">
+              <label class="field">
+                <span>Relazionale</span>
+                <input name="relationalImportance" type="number" min="0" max="10" step="0.5" value="8" />
+              </label>
+              <label class="field">
+                <span>Espressivo-creativa</span>
+                <input name="expressiveImportance" type="number" min="0" max="10" step="0.5" value="6" />
+              </label>
+              <label class="field">
+                <span>Riflessiva</span>
+                <input name="reflectiveImportance" type="number" min="0" max="10" step="0.5" value="4" />
+              </label>
+              <label class="field">
+                <span>Virtuosa</span>
+                <input name="virtuousImportance" type="number" min="0" max="10" step="0.5" value="6" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="primary-button" type="submit">Crea profilo</button>
+              <button id="cancel-profile-builder" class="ghost-button" type="button">Chiudi</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Ingresso giornaliero</p>
+              <h2>Compila la tua giornata</h2>
+            </div>
+            <label class="field compact-field">
+              <span>Data</span>
+              <input id="entry-date" type="date" />
+            </label>
+          </div>
+          <form id="entry-form">
+            <div id="entry-fields" class="slider-stack"></div>
+            <label class="field">
+              <span>Nota breve</span>
+              <textarea
+                id="entry-notes"
+                rows="3"
+                placeholder="Eventi, sensazioni, eccezioni della giornata..."
+              ></textarea>
+            </label>
+            <div class="inline-actions">
+              <button class="primary-button" type="submit">Salva giornata</button>
+              <button id="request-notifications" class="ghost-button" type="button">
+                Abilita notifiche
+              </button>
+              <span id="notification-status" class="status-pill"></span>
+            </div>
+          </form>
+        </section>
+
+        <section class="card metrics-card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Output</p>
+              <h2>Calcolo live</h2>
+            </div>
+          </div>
+          <div class="metrics-grid">
+            <article class="metric-tile">
+              <span>ETA</span>
+              <strong id="eta-value">0.00</strong>
+              <p id="eta-caption">Media pesata del giorno.</p>
+            </article>
+            <article class="metric-tile accent">
+              <span>IOTA</span>
+              <strong id="iota-value">0.00</strong>
+              <p id="iota-caption">Felicita complessiva con memoria storica.</p>
+            </article>
+          </div>
+          <div id="iota-breakdown" class="breakdown-grid"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Configurazione</p>
+              <h2>Pesi e finestre modificabili</h2>
+            </div>
+          </div>
+          <form id="settings-form">
+            <div class="subsection">
+              <h3>Pesi ETA</h3>
+              <div class="grid two-col">
+                <label class="field">
+                  <span>Relazionale %</span>
+                  <input name="eta_relational" type="number" min="0" max="100" step="0.5" />
+                </label>
+                <label class="field">
+                  <span>Espressiva %</span>
+                  <input name="eta_expressive" type="number" min="0" max="100" step="0.5" />
+                </label>
+                <label class="field">
+                  <span>Riflessiva %</span>
+                  <input name="eta_reflective" type="number" min="0" max="100" step="0.5" />
+                </label>
+                <label class="field">
+                  <span>Virtuosa %</span>
+                  <input name="eta_virtuous" type="number" min="0" max="100" step="0.5" />
+                </label>
+              </div>
+            </div>
+
+            <div class="subsection">
+              <h3>Pesi IOTA</h3>
+              <div class="grid two-col">
+                <label class="field">
+                  <span>Oggi %</span>
+                  <input name="iota_today" type="number" min="0" max="100" step="0.5" />
+                </label>
+                <label class="field">
+                  <span>Ultimi 2 giorni %</span>
+                  <input name="iota_recent" type="number" min="0" max="100" step="0.5" />
+                </label>
+                <label class="field">
+                  <span>3-45 giorni %</span>
+                  <input name="iota_medium" type="number" min="0" max="100" step="0.5" />
+                </label>
+                <label class="field">
+                  <span>46-548 giorni %</span>
+                  <input name="iota_long" type="number" min="0" max="100" step="0.5" />
+                </label>
+              </div>
+            </div>
+
+            <div class="subsection">
+              <h3>Finestre e baseline</h3>
+              <div class="grid three-col">
+                <label class="field">
+                  <span>Finestra breve (giorni)</span>
+                  <input name="recentDays" type="number" min="1" max="30" step="1" />
+                </label>
+                <label class="field">
+                  <span>Finestra media (giorni)</span>
+                  <input name="mediumDays" type="number" min="2" max="180" step="1" />
+                </label>
+                <label class="field">
+                  <span>Finestra lunga (giorni)</span>
+                  <input name="longDays" type="number" min="30" max="730" step="1" />
+                </label>
+                <label class="field">
+                  <span>Baseline breve</span>
+                  <input name="baseline_recent" type="number" min="0" max="10" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>Baseline media</span>
+                  <input name="baseline_medium" type="number" min="0" max="10" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>Baseline lunga</span>
+                  <input name="baseline_long" type="number" min="0" max="10" step="0.1" />
+                </label>
+              </div>
+            </div>
+
+            <div class="subsection">
+              <h3>Reminder</h3>
+              <div class="grid two-col">
+                <label class="field">
+                  <span>Ora reminder</span>
+                  <input name="reminder_time" type="time" />
+                </label>
+                <label class="field">
+                  <span>Timezone</span>
+                  <input name="reminder_timezone" type="text" placeholder="Europe/Rome" />
+                </label>
+              </div>
+            </div>
+
+            <div class="inline-actions">
+              <button class="primary-button" type="submit">Salva impostazioni</button>
+              <button id="export-profile" class="ghost-button" type="button">Esporta profilo</button>
+              <label class="ghost-button file-button">
+                Importa profilo
+                <input id="import-profile" type="file" accept="application/json" />
+              </label>
+            </div>
+          </form>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Storico</p>
+              <h2>Ultime giornate salvate</h2>
+            </div>
+          </div>
+          <div id="history-table" class="history-table"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Produzione</p>
+              <h2>Telefono, Supabase e reminder alle 23</h2>
+            </div>
+          </div>
+          <div class="production-copy">
+            <p>
+              Questa base funziona gia come PWA installabile. Per avere un vero
+              prompt serale anche a schermo spento, serve affiancare un backend
+              che invii push o messaggi schedulati.
+            </p>
+            <p>
+              Nel progetto trovi uno schema Supabase pronto per profili,
+              giornate e subscription push. La parte web e gia compatibile con
+              il modello multiutente.
+            </p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./config.js"></script>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
