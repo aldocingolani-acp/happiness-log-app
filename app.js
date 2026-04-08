@@ -28,6 +28,9 @@ const DEFAULT_WINDOWS = {
   longDays: 548,
 };
 
+const DAILY_SCORE_SYMBOL = "\u03B9";
+const OVERALL_SCORE_SYMBOL = "\u03C6";
+
 const APP_CONFIG = readAppConfig();
 
 const runtime = {
@@ -80,68 +83,17 @@ function loadState() {
   } catch (error) {
     console.warn("Impossibile leggere lo stato salvato.", error);
   }
-  return buildSeedState();
+  return buildEmptyState();
 }
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function buildSeedState() {
-  const profile = hydrateProfile({
-    id: crypto.randomUUID(),
-    name: "Aldo",
-    etaWeights: {
-      relational: 35,
-      expressive: 25,
-      reflective: 15,
-      virtuous: 25,
-    },
-    iotaWeights: {
-      today: 60,
-      recent: 25,
-      medium: 10,
-      long: 5,
-    },
-    windows: { ...DEFAULT_WINDOWS },
-    baselines: {
-      recent: 9,
-      medium: 6.5,
-      long: 8,
-    },
-    reminder: {
-      time: "23:00",
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Rome",
-    },
-    entries: [],
-    createdAt: new Date().toISOString(),
-  });
-
-  const seedEntry = {
-    id: crypto.randomUUID(),
-    date: todayIso(),
-    spheres: {
-      relational: 9,
-      expressive: 7,
-      reflective: 7.5,
-      virtuous: 8.5,
-    },
-    notes: "Seed iniziale basato sui valori del brief.",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const computed = computeForDraft(profile, seedEntry);
-  profile.entries.push({
-    ...seedEntry,
-    eta: round2(computed.eta),
-    iota: round2(computed.iota),
-    savedAt: new Date().toISOString(),
-  });
-
+function buildEmptyState() {
   return {
-    activeProfileId: profile.id,
-    profiles: [profile],
+    activeProfileId: null,
+    profiles: [],
   };
 }
 
@@ -272,7 +224,11 @@ function bindGlobalEvents() {
   document
     .getElementById("entry-notes")
     .addEventListener("input", (event) => {
-      const draft = ensureDraft(getActiveProfile());
+      const profile = getActiveProfile();
+      if (!profile) {
+        return;
+      }
+      const draft = ensureDraft(profile);
       draft.notes = event.target.value;
       renderComputedSection();
     });
@@ -299,7 +255,9 @@ function render() {
   renderProfileList();
   renderProfileBuilder();
   renderEntryForm();
+  renderComputedSection();
   renderSettings();
+  renderCharts();
   renderHistory();
   renderNotificationStatus();
 }
@@ -367,6 +325,11 @@ function renderProfileList() {
   const list = document.getElementById("profile-list");
   list.innerHTML = "";
 
+  if (state.profiles.length === 0) {
+    list.innerHTML = '<p class="empty-copy">Nessun profilo presente su questo dispositivo.</p>';
+    return;
+  }
+
   state.profiles.forEach((profile) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -389,17 +352,40 @@ function renderProfileList() {
 
 function renderProfileBuilder() {
   const builder = document.getElementById("profile-builder");
-  builder.classList.toggle("hidden", !runtime.showProfileBuilder);
+  const toggleButton = document.getElementById("toggle-profile-builder");
+  const shouldShow = runtime.showProfileBuilder || state.profiles.length === 0;
+  builder.classList.toggle("hidden", !shouldShow);
+  toggleButton.textContent = state.profiles.length === 0 ? "Crea primo profilo" : "Nuovo profilo";
 }
 
 function renderEntryForm() {
   const profile = getActiveProfile();
   const dateInput = document.getElementById("entry-date");
+  const fields = document.getElementById("entry-fields");
+  const notes = document.getElementById("entry-notes");
+  const saveButton = document.querySelector('#entry-form button[type="submit"]');
+  const notificationButton = document.getElementById("request-notifications");
   dateInput.value = runtime.selectedDate;
 
-  const draft = ensureDraft(profile);
-  const fields = document.getElementById("entry-fields");
   fields.innerHTML = "";
+
+  if (!profile) {
+    dateInput.disabled = true;
+    notes.value = "";
+    notes.disabled = true;
+    saveButton.disabled = true;
+    notificationButton.disabled = true;
+    fields.innerHTML =
+      '<p class="empty-copy">Accedi oppure crea un profilo per inserire i voti del giorno.</p>';
+    return;
+  }
+
+  dateInput.disabled = false;
+  notes.disabled = false;
+  saveButton.disabled = false;
+  notificationButton.disabled = false;
+
+  const draft = ensureDraft(profile);
 
   SPHERES.forEach((sphere) => {
     const wrapper = document.createElement("div");
@@ -439,8 +425,7 @@ function renderEntryForm() {
       });
   });
 
-  document.getElementById("entry-notes").value = draft.notes || "";
-  renderComputedSection();
+  notes.value = draft.notes || "";
 }
 
 function renderComputedSection() {
@@ -1451,6 +1436,538 @@ function explainSupabaseError(error) {
     return "Connessione cloud non riuscita. Verifica URL Supabase, CORS e rete.";
   }
   return message;
+}
+
+function getActiveProfile() {
+  return state.profiles.find((profile) => profile.id === state.activeProfileId) || state.profiles[0] || null;
+}
+
+function render() {
+  renderCloudPanel();
+  renderProfileList();
+  renderProfileBuilder();
+  renderEntryForm();
+  renderComputedSection();
+  renderSettings();
+  renderCharts();
+  renderHistory();
+  renderNotificationStatus();
+}
+
+function renderProfileList() {
+  const list = document.getElementById("profile-list");
+  list.innerHTML = "";
+
+  if (state.profiles.length === 0) {
+    list.innerHTML = '<p class="empty-copy">Nessun profilo presente su questo dispositivo.</p>';
+    return;
+  }
+
+  state.profiles.forEach((profile) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className =
+      "profile-chip" + (profile.id === state.activeProfileId ? " active" : "");
+    button.innerHTML = `
+      <strong>${escapeHtml(profile.name)}</strong>
+      <span>Iota ${DAILY_SCORE_SYMBOL}: ${formatWeights(profile.etaWeights)}</span>
+      <span>${profile.entries.length} giornate salvate</span>
+    `;
+    button.addEventListener("click", () => {
+      state.activeProfileId = profile.id;
+      runtime.selectedDate = todayIso();
+      render();
+      void maybeRegisterPushSubscription();
+    });
+    list.appendChild(button);
+  });
+}
+
+function renderProfileBuilder() {
+  const builder = document.getElementById("profile-builder");
+  const toggleButton = document.getElementById("toggle-profile-builder");
+  const shouldShow = runtime.showProfileBuilder || state.profiles.length === 0;
+  builder.classList.toggle("hidden", !shouldShow);
+  toggleButton.textContent = state.profiles.length === 0 ? "Crea primo profilo" : "Nuovo profilo";
+}
+
+function renderEntryForm() {
+  const profile = getActiveProfile();
+  const dateInput = document.getElementById("entry-date");
+  const fields = document.getElementById("entry-fields");
+  const notes = document.getElementById("entry-notes");
+  const saveButton = document.querySelector('#entry-form button[type="submit"]');
+  const notificationButton = document.getElementById("request-notifications");
+
+  dateInput.value = runtime.selectedDate;
+  fields.innerHTML = "";
+
+  if (!profile) {
+    dateInput.disabled = true;
+    notes.value = "";
+    notes.disabled = true;
+    saveButton.disabled = true;
+    notificationButton.disabled = true;
+    fields.innerHTML =
+      '<p class="empty-copy">Accedi oppure crea un profilo per inserire i voti del giorno.</p>';
+    return;
+  }
+
+  dateInput.disabled = false;
+  notes.disabled = false;
+  saveButton.disabled = false;
+  notificationButton.disabled = false;
+
+  const draft = ensureDraft(profile);
+
+  SPHERES.forEach((sphere) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "slider-card";
+    wrapper.innerHTML = `
+      <div class="slider-row">
+        <div>
+          <strong>${sphere.label}</strong>
+          <div class="section-kicker">${sphere.description}</div>
+        </div>
+        <div class="slider-meta">
+          <span class="weight-pill">${formatPercent(profile.etaWeights[sphere.key])}</span>
+          <span class="value-pill" id="value-${sphere.key}">${formatScore(
+            draft.spheres[sphere.key]
+          )}</span>
+        </div>
+      </div>
+      <input
+        id="slider-${sphere.key}"
+        type="range"
+        min="0"
+        max="10"
+        step="0.5"
+        value="${draft.spheres[sphere.key]}"
+      />
+    `;
+    fields.appendChild(wrapper);
+
+    wrapper
+      .querySelector(`#slider-${sphere.key}`)
+      .addEventListener("input", (event) => {
+        const nextValue = clamp(Number(event.target.value), 0, 10);
+        draft.spheres[sphere.key] = nextValue;
+        wrapper.querySelector(`#value-${sphere.key}`).textContent =
+          formatScore(nextValue);
+        renderComputedSection();
+      });
+  });
+
+  notes.value = draft.notes || "";
+}
+
+function renderComputedSection() {
+  const profile = getActiveProfile();
+  const summary = document.getElementById("score-summary");
+  const summaryCopy = document.getElementById("score-summary-copy");
+  const breakdown = document.getElementById("iota-breakdown");
+
+  if (!profile) {
+    document.getElementById("eta-value").textContent = "--";
+    document.getElementById("iota-value").textContent = "--";
+    document.getElementById("eta-caption").textContent =
+      `Iota ${DAILY_SCORE_SYMBOL}: media pesata della singola giornata.`;
+    document.getElementById("iota-caption").textContent =
+      `Fi ${OVERALL_SCORE_SYMBOL}: valore complessivo con memoria storica.`;
+    summary.textContent = "Nessun dato visibile";
+    summaryCopy.textContent =
+      "Chi apre il link da zero non vede numeri: i valori compaiono solo dopo accesso o creazione di un profilo.";
+    breakdown.innerHTML = "";
+    return;
+  }
+
+  const draft = ensureDraft(profile);
+  const computed = computeForDraft(profile, draft);
+
+  document.getElementById("eta-value").textContent = formatScore(computed.eta);
+  document.getElementById("iota-value").textContent = formatScore(computed.iota);
+  document.getElementById("eta-caption").textContent =
+    `Iota ${DAILY_SCORE_SYMBOL}: media pesata giornaliera delle quattro sfere.`;
+  document.getElementById("iota-caption").textContent =
+    `Fi ${OVERALL_SCORE_SYMBOL}: valore complessivo con memoria breve, media e lunga.`;
+  summary.textContent = `Iota ${DAILY_SCORE_SYMBOL} ${formatScore(computed.eta)} / Fi ${OVERALL_SCORE_SYMBOL} ${formatScore(computed.iota)}`;
+  summaryCopy.textContent = `Profilo ${profile.name}, data ${formatDateLabel(draft.date)}.`;
+  breakdown.innerHTML = "";
+
+  const cards = [
+    {
+      label: "Giorno selezionato",
+      avg: computed.components.todayEta,
+      weight: profile.iotaWeights.today,
+    },
+    {
+      label: `1-${profile.windows.recentDays} giorni`,
+      avg: computed.components.recentAvg,
+      weight: profile.iotaWeights.recent,
+    },
+    {
+      label: `${profile.windows.recentDays + 1}-${profile.windows.mediumDays} giorni`,
+      avg: computed.components.mediumAvg,
+      weight: profile.iotaWeights.medium,
+    },
+    {
+      label: `${profile.windows.mediumDays + 1}-${profile.windows.longDays} giorni`,
+      avg: computed.components.longAvg,
+      weight: profile.iotaWeights.long,
+    },
+  ];
+
+  cards.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "breakdown-card";
+    card.innerHTML = `
+      <span>${item.label}</span>
+      <strong>${formatScore(item.avg)}</strong>
+      <span>Peso ${formatPercent(item.weight)}</span>
+    `;
+    breakdown.appendChild(card);
+  });
+}
+
+function renderSettings() {
+  const profile = getActiveProfile();
+  const form = document.getElementById("settings-form");
+  const saveButton = form.querySelector('button[type="submit"]');
+  const exportButton = document.getElementById("export-profile");
+  const inputs = [...form.querySelectorAll('input:not(#import-profile)')];
+
+  if (!profile) {
+    inputs.forEach((input) => {
+      input.value = "";
+      input.disabled = true;
+    });
+    saveButton.disabled = true;
+    exportButton.disabled = true;
+    return;
+  }
+
+  inputs.forEach((input) => {
+    input.disabled = false;
+  });
+  saveButton.disabled = false;
+  exportButton.disabled = false;
+
+  form.elements.eta_relational.value = profile.etaWeights.relational;
+  form.elements.eta_expressive.value = profile.etaWeights.expressive;
+  form.elements.eta_reflective.value = profile.etaWeights.reflective;
+  form.elements.eta_virtuous.value = profile.etaWeights.virtuous;
+
+  form.elements.iota_today.value = profile.iotaWeights.today;
+  form.elements.iota_recent.value = profile.iotaWeights.recent;
+  form.elements.iota_medium.value = profile.iotaWeights.medium;
+  form.elements.iota_long.value = profile.iotaWeights.long;
+
+  form.elements.recentDays.value = profile.windows.recentDays;
+  form.elements.mediumDays.value = profile.windows.mediumDays;
+  form.elements.longDays.value = profile.windows.longDays;
+
+  form.elements.baseline_recent.value = profile.baselines.recent;
+  form.elements.baseline_medium.value = profile.baselines.medium;
+  form.elements.baseline_long.value = profile.baselines.long;
+  form.elements.reminder_time.value = profile.reminder?.time || "23:00";
+  form.elements.reminder_timezone.value =
+    profile.reminder?.timezone || "Europe/Rome";
+}
+
+function renderHistory() {
+  const profile = getActiveProfile();
+  const mount = document.getElementById("history-table");
+
+  if (!profile) {
+    mount.innerHTML =
+      '<p class="history-empty">Nessun dato disponibile. Accedi o crea un profilo per iniziare.</p>';
+    return;
+  }
+
+  const sorted = [...profile.entries].sort((a, b) => b.date.localeCompare(a.date));
+
+  if (sorted.length === 0) {
+    mount.innerHTML = `<p class="history-empty">Ancora nessuna giornata salvata.</p>`;
+    return;
+  }
+
+  const rows = sorted
+    .map(
+      (entry) => `
+        <tr>
+          <td>${escapeHtml(entry.date)}</td>
+          <td>${formatScore(entry.spheres.relational)}</td>
+          <td>${formatScore(entry.spheres.expressive)}</td>
+          <td>${formatScore(entry.spheres.reflective)}</td>
+          <td>${formatScore(entry.spheres.virtuous)}</td>
+          <td>${formatScore(entry.eta)}</td>
+          <td>${formatScore(entry.iota)}</td>
+        </tr>
+      `
+    )
+    .join("");
+
+  mount.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Rel.</th>
+          <th>Esp.</th>
+          <th>Rifl.</th>
+          <th>Virt.</th>
+          <th>Iota ${DAILY_SCORE_SYMBOL}</th>
+          <th>Fi ${OVERALL_SCORE_SYMBOL}</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function renderCharts() {
+  const profile = getActiveProfile();
+  const sphereMount = document.getElementById("sphere-chart");
+  const summaryMount = document.getElementById("summary-chart");
+
+  if (!profile) {
+    const emptyCopy =
+      '<p class="chart-empty">Nessun grafico disponibile finché non esiste un profilo con dati salvati.</p>';
+    sphereMount.innerHTML = emptyCopy;
+    summaryMount.innerHTML = emptyCopy;
+    return;
+  }
+
+  const sortedEntries = [...profile.entries].sort((a, b) => a.date.localeCompare(b.date));
+  if (sortedEntries.length === 0) {
+    const emptyCopy =
+      '<p class="chart-empty">Salva almeno una giornata per vedere l\'andamento nel tempo.</p>';
+    sphereMount.innerHTML = emptyCopy;
+    summaryMount.innerHTML = emptyCopy;
+    return;
+  }
+
+  renderLineChart(sphereMount, sortedEntries, [
+    { label: "Relazionale", color: "#f0a39b", accessor: (entry) => entry.spheres.relational },
+    { label: "Espressiva", color: "#f3c78c", accessor: (entry) => entry.spheres.expressive },
+    { label: "Riflessiva", color: "#98bfd9", accessor: (entry) => entry.spheres.reflective },
+    { label: "Virtuosa", color: "#9ccfc0", accessor: (entry) => entry.spheres.virtuous },
+    { label: `Iota ${DAILY_SCORE_SYMBOL}`, color: "#7ca592", accessor: (entry) => entry.eta },
+  ]);
+
+  renderLineChart(summaryMount, sortedEntries, [
+    { label: `Iota ${DAILY_SCORE_SYMBOL}`, color: "#7ca592", accessor: (entry) => entry.eta },
+    { label: `Fi ${OVERALL_SCORE_SYMBOL}`, color: "#d18f94", accessor: (entry) => entry.iota },
+  ]);
+}
+
+function renderLineChart(mount, entries, seriesList) {
+  const width = 720;
+  const height = 260;
+  const padding = { top: 16, right: 14, bottom: 34, left: 34 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const xForIndex = (index) =>
+    entries.length === 1
+      ? padding.left + plotWidth / 2
+      : padding.left + (plotWidth * index) / (entries.length - 1);
+  const yForValue = (value) =>
+    padding.top + plotHeight - (clamp(Number(value) || 0, 0, 10) / 10) * plotHeight;
+
+  const gridValues = [0, 2.5, 5, 7.5, 10];
+  const xLabelIndexes = pickAxisLabelIndexes(entries.length);
+
+  const grid = gridValues
+    .map((value) => {
+      const y = yForValue(value);
+      return `
+        <line class="chart-grid-line" x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" />
+        <text class="chart-axis-label" x="${padding.left - 8}" y="${y + 4}" text-anchor="end">${round2(value)}</text>
+      `;
+    })
+    .join("");
+
+  const xLabels = xLabelIndexes
+    .map((index) => {
+      const x = xForIndex(index);
+      return `<text class="chart-axis-label" x="${x}" y="${height - 8}" text-anchor="middle">${formatDateLabel(
+        entries[index].date
+      )}</text>`;
+    })
+    .join("");
+
+  const lines = seriesList
+    .map((series) => {
+      const points = entries.map((entry, index) => ({
+        x: round2(xForIndex(index)),
+        y: round2(yForValue(series.accessor(entry))),
+      }));
+      const path = points
+        .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+        .join(" ");
+      const dots = points
+        .map(
+          (point) =>
+            `<circle class="chart-point" cx="${point.x}" cy="${point.y}" r="4" fill="${series.color}" />`
+        )
+        .join("");
+      return `
+        <path class="chart-line" d="${path}" stroke="${series.color}" />
+        ${dots}
+      `;
+    })
+    .join("");
+
+  const legend = seriesList
+    .map(
+      (series) => `
+        <span class="legend-item">
+          <span class="legend-swatch" style="background:${series.color}"></span>
+          ${escapeHtml(series.label)}
+        </span>
+      `
+    )
+    .join("");
+
+  mount.innerHTML = `
+    <div class="chart-legend">${legend}</div>
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafico temporale">
+      ${grid}
+      ${lines}
+      ${xLabels}
+    </svg>
+  `;
+}
+
+function pickAxisLabelIndexes(length) {
+  if (length <= 6) {
+    return Array.from({ length }, (_value, index) => index);
+  }
+
+  return [...new Set([0, Math.floor((length - 1) / 3), Math.floor((length - 1) / 2), Math.floor(((length - 1) * 2) / 3), length - 1])];
+}
+
+function formatDateLabel(isoDate) {
+  const [year, month, day] = isoDate.split("-");
+  return `${day}/${month}`;
+}
+
+function handleEntrySave(event) {
+  event.preventDefault();
+  const profile = getActiveProfile();
+  if (!profile) {
+    return;
+  }
+
+  const draft = ensureDraft(profile);
+  const computed = computeForDraft(profile, draft);
+  const existingEntry = profile.entries.find((item) => item.date === draft.date);
+  const nowIso = new Date().toISOString();
+  const entry = {
+    id: existingEntry?.id || crypto.randomUUID(),
+    date: draft.date,
+    spheres: { ...draft.spheres },
+    notes: draft.notes || "",
+    eta: round2(computed.eta),
+    iota: round2(computed.iota),
+    savedAt: nowIso,
+    createdAt: existingEntry?.createdAt || nowIso,
+    updatedAt: nowIso,
+  };
+
+  const index = profile.entries.findIndex((item) => item.date === entry.date);
+  if (index >= 0) {
+    profile.entries[index] = entry;
+  } else {
+    profile.entries.push(entry);
+  }
+
+  recomputeProfileEntries(profile);
+  profile.updatedAt = nowIso;
+  saveState();
+  render();
+  void syncProfilesToCloud({ pullAfterPush: false });
+}
+
+function handleSettingsSave(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const profile = getActiveProfile();
+  if (!profile) {
+    return;
+  }
+
+  profile.etaWeights = normalizeWeights({
+    relational: Number(form.elements.eta_relational.value) || 0,
+    expressive: Number(form.elements.eta_expressive.value) || 0,
+    reflective: Number(form.elements.eta_reflective.value) || 0,
+    virtuous: Number(form.elements.eta_virtuous.value) || 0,
+  });
+
+  profile.iotaWeights = normalizeWeights({
+    today: Number(form.elements.iota_today.value) || 0,
+    recent: Number(form.elements.iota_recent.value) || 0,
+    medium: Number(form.elements.iota_medium.value) || 0,
+    long: Number(form.elements.iota_long.value) || 0,
+  });
+
+  const recentDays = clampInt(Number(form.elements.recentDays.value) || 2, 1, 30);
+  const mediumDays = clampInt(
+    Number(form.elements.mediumDays.value) || 45,
+    recentDays + 1,
+    180
+  );
+  const longDays = clampInt(
+    Number(form.elements.longDays.value) || 548,
+    mediumDays + 1,
+    730
+  );
+
+  profile.windows = {
+    recentDays,
+    mediumDays,
+    longDays,
+  };
+
+  profile.baselines = {
+    recent: clamp(Number(form.elements.baseline_recent.value) || 0, 0, 10),
+    medium: clamp(Number(form.elements.baseline_medium.value) || 0, 0, 10),
+    long: clamp(Number(form.elements.baseline_long.value) || 0, 0, 10),
+  };
+
+  profile.reminder = {
+    time: String(form.elements.reminder_time.value || "23:00"),
+    timezone: String(form.elements.reminder_timezone.value || "Europe/Rome").trim() || "Europe/Rome",
+  };
+
+  profile.updatedAt = new Date().toISOString();
+  recomputeProfileEntries(profile);
+  saveState();
+  render();
+  void syncProfilesToCloud({ pullAfterPush: false });
+}
+
+function exportCurrentProfile() {
+  const profile = getActiveProfile();
+  if (!profile) {
+    return;
+  }
+
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    version: 1,
+    profile,
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${slugify(profile.name)}-felicita-profile.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 async function registerServiceWorker() {

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f2c6b6" />
     <meta
       name="description"
-      content="PWA per misurare la felicita quotidiana con le formule eta e iota."
+      content="PWA per registrare quattro sfere giornaliere e calcolare una metrica quotidiana e una complessiva."
     />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
@@ -21,13 +21,15 @@
           <h1>Quattro voti. Un dato chiaro.</h1>
           <p class="hero-text">
             Inserisci i quattro voti della giornata, salva il dato e aggiorna
-            ETA e IOTA con regole modificabili nel tempo.
+            iota e fi con regole modificabili nel tempo.
           </p>
         </div>
         <div class="hero-badge">
-          <span class="badge-label">Valori iniziali</span>
-          <strong id="seed-summary">ETA 8.15 / IOTA 8.19</strong>
-          <span>Relazionale 9, Espressiva 7, Riflessiva 7.5, Virtuosa 8.5</span>
+          <span class="badge-label">Riepilogo</span>
+          <strong id="score-summary">Nessun dato visibile</strong>
+          <span id="score-summary-copy">
+            Accedi oppure crea un profilo su questo dispositivo per vedere i valori.
+          </span>
         </div>
       </header>
 
@@ -105,7 +107,7 @@
             </div>
             <p class="builder-copy">
               Dai un peso istintivo da 0 a 10 alle sfere. L'app lo normalizza in
-              percentuali per l'algoritmo ETA.
+              percentuali per la iota giornaliera.
             </p>
             <div class="grid two-col">
               <label class="field">
@@ -168,21 +170,53 @@
             <div>
               <p class="section-kicker">Output</p>
               <h2>Risultati</h2>
+              <p class="builder-copy">
+                <strong>Iota (&#953;)</strong> = media pesata giornaliera delle quattro sfere.
+                <strong>Fi (&#966;)</strong> = valore complessivo che combina la giornata con la memoria storica.
+              </p>
             </div>
           </div>
           <div class="metrics-grid">
             <article class="metric-tile">
-              <span>ETA</span>
-              <strong id="eta-value">0.00</strong>
-              <p id="eta-caption">Media pesata del giorno.</p>
+              <span>Iota &#953;</span>
+              <strong id="eta-value">--</strong>
+              <p id="eta-caption">Valore giornaliero.</p>
             </article>
             <article class="metric-tile accent">
-              <span>IOTA</span>
-              <strong id="iota-value">0.00</strong>
-              <p id="iota-caption">Felicita complessiva con memoria storica.</p>
+              <span>Fi &#966;</span>
+              <strong id="iota-value">--</strong>
+              <p id="iota-caption">Valore complessivo.</p>
             </article>
           </div>
           <div id="iota-breakdown" class="breakdown-grid"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Grafici</p>
+              <h2>Evoluzione nel tempo</h2>
+              <p class="builder-copy">
+                Andamento delle quattro sfere, della iota giornaliera e della fi complessiva.
+              </p>
+            </div>
+          </div>
+          <div class="chart-grid">
+            <article class="chart-panel">
+              <div class="chart-head">
+                <h3>4 sfere + iota giornaliera</h3>
+                <p>Scala 0-10 sulle giornate salvate.</p>
+              </div>
+              <div id="sphere-chart" class="chart-mount"></div>
+            </article>
+            <article class="chart-panel">
+              <div class="chart-head">
+                <h3>Iota giornaliera + fi complessiva</h3>
+                <p>Confronto tra il dato del giorno e quello complessivo.</p>
+              </div>
+              <div id="summary-chart" class="chart-mount"></div>
+            </article>
+          </div>
         </section>
 
         <section class="card">
@@ -194,7 +228,10 @@
           </div>
           <form id="settings-form">
             <div class="subsection">
-              <h3>Pesi ETA</h3>
+              <h3>Pesi iota giornaliera</h3>
+              <p class="builder-copy">
+                Questi pesi definiscono come si calcola la media pesata della singola giornata.
+              </p>
               <div class="grid two-col">
                 <label class="field">
                   <span>Relazionale %</span>
@@ -216,7 +253,10 @@
             </div>
 
             <div class="subsection">
-              <h3>Pesi IOTA</h3>
+              <h3>Pesi fi complessiva</h3>
+              <p class="builder-copy">
+                Questi pesi definiscono quanto contano oggi, memoria breve, media e lunga.
+              </p>
               <div class="grid two-col">
                 <label class="field">
                   <span>Oggi %</span>
@@ -318,6 +358,10 @@
             <p>
               Nel progetto trovi gia schema Supabase, gestione profili,
               giornate, subscription push e base multiutente.
+            </p>
+            <p>
+              Chi apre il link da un dispositivo nuovo non vede dati personali:
+              i valori compaiono solo dopo login o dopo la creazione di un profilo locale.
             </p>
           </div>
         </section>
