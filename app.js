@@ -35,6 +35,7 @@ const APP_CONFIG = readAppConfig();
 
 const runtime = {
   selectedDate: todayIso(),
+  activeTab: "input",
   drafts: {},
   showProfileBuilder: false,
   cloud: {
@@ -1981,4 +1982,121 @@ async function registerServiceWorker() {
     console.warn("Service worker non registrato.", error);
     return null;
   }
+}
+
+function bindGlobalEvents() {
+  document
+    .getElementById("auth-form")
+    .addEventListener("submit", handleEmailSignIn);
+
+  document.querySelectorAll(".tab-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      runtime.activeTab = normalizeTab(button.dataset.tab);
+      renderActiveTab();
+    });
+  });
+
+  document
+    .getElementById("sync-cloud")
+    .addEventListener("click", () => {
+      void syncProfilesToCloud({ pullAfterPush: true });
+    });
+
+  document
+    .getElementById("pull-cloud")
+    .addEventListener("click", () => {
+      void pullProfilesFromCloud();
+    });
+
+  document
+    .getElementById("logout-button")
+    .addEventListener("click", handleLogout);
+
+  document
+    .getElementById("toggle-profile-builder")
+    .addEventListener("click", () => {
+      runtime.showProfileBuilder = !runtime.showProfileBuilder;
+      renderProfileBuilder();
+    });
+
+  document
+    .getElementById("cancel-profile-builder")
+    .addEventListener("click", () => {
+      runtime.showProfileBuilder = false;
+      renderProfileBuilder();
+    });
+
+  document
+    .getElementById("profile-builder")
+    .addEventListener("submit", handleProfileCreate);
+
+  document
+    .getElementById("entry-form")
+    .addEventListener("submit", handleEntrySave);
+
+  document
+    .getElementById("entry-date")
+    .addEventListener("change", handleDateChange);
+
+  document
+    .getElementById("entry-notes")
+    .addEventListener("input", (event) => {
+      const profile = getActiveProfile();
+      if (!profile) {
+        return;
+      }
+      const draft = ensureDraft(profile);
+      draft.notes = event.target.value;
+      renderComputedSection();
+    });
+
+  document
+    .getElementById("settings-form")
+    .addEventListener("submit", handleSettingsSave);
+
+  document
+    .getElementById("request-notifications")
+    .addEventListener("click", requestNotificationPermission);
+
+  document
+    .getElementById("export-profile")
+    .addEventListener("click", exportCurrentProfile);
+
+  document
+    .getElementById("import-profile")
+    .addEventListener("change", importProfileFromFile);
+}
+
+function render() {
+  renderCloudPanel();
+  renderProfileList();
+  renderProfileBuilder();
+  renderEntryForm();
+  renderComputedSection();
+  renderSettings();
+  renderCharts();
+  renderHistory();
+  renderNotificationStatus();
+  renderActiveTab();
+}
+
+function handleDateChange(event) {
+  runtime.selectedDate = event.target.value || todayIso();
+  render();
+}
+
+function normalizeTab(tab) {
+  return ["input", "summary", "settings"].includes(tab) ? tab : "input";
+}
+
+function renderActiveTab() {
+  runtime.activeTab = normalizeTab(runtime.activeTab);
+
+  document.querySelectorAll(".tab-button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === runtime.activeTab);
+  });
+
+  document.querySelectorAll("[data-tab-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.tabPanel !== runtime.activeTab);
+  });
 }

@@ -18,23 +18,32 @@
       <header class="hero">
         <div class="hero-copy">
           <p class="eyebrow">Happiness log</p>
-          <h1>Quattro voti. Un dato chiaro.</h1>
-          <p class="hero-text">
-            Inserisci i quattro voti della giornata, salva il dato e aggiorna
-            iota e fi con regole modificabili nel tempo.
-          </p>
+          <h1>Happiness log</h1>
         </div>
         <div class="hero-badge">
-          <span class="badge-label">Riepilogo</span>
-          <strong id="score-summary">Nessun dato visibile</strong>
-          <span id="score-summary-copy">
-            Accedi oppure crea un profilo su questo dispositivo per vedere i valori.
-          </span>
+          <article class="info-card">
+            <span class="badge-label">Iota &#953;</span>
+            <p class="hero-text hero-text-tight">
+              Valore giornaliero: media pesata delle quattro sfere del giorno.
+            </p>
+          </article>
+          <article class="info-card">
+            <span class="badge-label">Fi &#966;</span>
+            <p class="hero-text hero-text-tight">
+              Valore complessivo: unisce il dato giornaliero con la memoria storica.
+            </p>
+          </article>
         </div>
       </header>
 
+      <nav class="tab-bar" aria-label="Navigazione principale">
+        <button class="tab-button active" type="button" data-tab="input">Diario</button>
+        <button class="tab-button" type="button" data-tab="summary">Summary</button>
+        <button class="tab-button" type="button" data-tab="settings">Configurazione</button>
+      </nav>
+
       <main class="layout">
-        <section class="card">
+        <section class="card" data-tab-panel="input">
           <div class="section-head">
             <div>
               <p class="section-kicker">Cloud</p>
@@ -83,7 +92,7 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tab-panel="input">
           <div class="section-head">
             <div>
               <p class="section-kicker">Profili</p>
@@ -134,7 +143,7 @@
           </form>
         </section>
 
-        <section class="card">
+        <section class="card" data-tab-panel="input">
           <div class="section-head">
             <div>
               <p class="section-kicker">Inserimento</p>
@@ -165,7 +174,7 @@
           </form>
         </section>
 
-        <section class="card metrics-card">
+        <section class="card metrics-card" data-tab-panel="summary">
           <div class="section-head">
             <div>
               <p class="section-kicker">Output</p>
@@ -191,7 +200,7 @@
           <div id="iota-breakdown" class="breakdown-grid"></div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tab-panel="summary">
           <div class="section-head">
             <div>
               <p class="section-kicker">Grafici</p>
@@ -219,7 +228,7 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tab-panel="settings">
           <div class="section-head">
             <div>
               <p class="section-kicker">Configurazione</p>
@@ -332,7 +341,7 @@
           </form>
         </section>
 
-        <section class="card">
+        <section class="card" data-tab-panel="summary">
           <div class="section-head">
             <div>
               <p class="section-kicker">Storico</p>
@@ -342,7 +351,7 @@
           <div id="history-table" class="history-table"></div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tab-panel="settings">
           <div class="section-head">
             <div>
               <p class="section-kicker">Produzione</p>
