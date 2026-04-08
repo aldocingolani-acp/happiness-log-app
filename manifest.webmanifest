@@ -3,8 +3,8 @@
   "short_name": "Felicita",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f8f0df",
-  "theme_color": "#f36d5d",
+  "background_color": "#fffaf3",
+  "theme_color": "#f2c6b6",
   "description": "PWA per registrare le quattro sfere giornaliere e calcolare ETA e IOTA.",
   "icons": [
     {

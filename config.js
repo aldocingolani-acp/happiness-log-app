@@ -1,6 +1,6 @@
 window.APP_CONFIG = {
   supabaseUrl: "https://lpisglhasfipmipavknh.supabase.co",
   supabaseAnonKey: "sb_publishable_XDTSZtq8NLHTaqkQmqqvag_mCcwoc1e",
-  authRedirectTo: "",
+  authRedirectTo: "https://happiness-emuvo1wid-money-balance-app.vercel.app",
   webPushPublicKey: "",
 };

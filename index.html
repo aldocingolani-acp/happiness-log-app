@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f36d5d" />
+    <meta name="theme-color" content="#f2c6b6" />
     <meta
       name="description"
       content="PWA per misurare la felicita quotidiana con le formule eta e iota."
@@ -11,21 +11,21 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
     <link rel="stylesheet" href="./styles.css" />
-    <title>Laboratorio della Felicita</title>
+    <title>Happiness Log</title>
   </head>
   <body>
     <div class="shell">
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Laboratorio della felicita</p>
-          <h1>Eta oggi. Iota nel tempo.</h1>
+          <p class="eyebrow">Happiness log</p>
+          <h1>Quattro voti. Un dato chiaro.</h1>
           <p class="hero-text">
-            Una PWA mobile-first per raccogliere i quattro voti della giornata,
-            calcolare il valore istantaneo e tener conto della memoria emotiva.
+            Inserisci i quattro voti della giornata, salva il dato e aggiorna
+            ETA e IOTA con regole modificabili nel tempo.
           </p>
         </div>
         <div class="hero-badge">
-          <span class="badge-label">Seed iniziale</span>
+          <span class="badge-label">Valori iniziali</span>
           <strong id="seed-summary">ETA 8.15 / IOTA 8.19</strong>
           <span>Relazionale 9, Espressiva 7, Riflessiva 7.5, Virtuosa 8.5</span>
         </div>
@@ -36,7 +36,7 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Cloud</p>
-              <h2>Supabase, login e sync</h2>
+              <h2>Accesso e sincronizzazione</h2>
             </div>
           </div>
           <div class="cloud-grid">
@@ -85,7 +85,7 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Profili</p>
-              <h2>Tu oggi, amici domani</h2>
+              <h2>Profili</h2>
             </div>
             <button id="toggle-profile-builder" class="ghost-button" type="button">
               Nuovo profilo
@@ -135,8 +135,8 @@
         <section class="card">
           <div class="section-head">
             <div>
-              <p class="section-kicker">Ingresso giornaliero</p>
-              <h2>Compila la tua giornata</h2>
+              <p class="section-kicker">Inserimento</p>
+              <h2>Voti del giorno</h2>
             </div>
             <label class="field compact-field">
               <span>Data</span>
@@ -167,7 +167,7 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Output</p>
-              <h2>Calcolo live</h2>
+              <h2>Risultati</h2>
             </div>
           </div>
           <div class="metrics-grid">
@@ -189,7 +189,7 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Configurazione</p>
-              <h2>Pesi e finestre modificabili</h2>
+              <h2>Parametri</h2>
             </div>
           </div>
           <form id="settings-form">
@@ -296,7 +296,7 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Storico</p>
-              <h2>Ultime giornate salvate</h2>
+              <h2>Storico giornaliero</h2>
             </div>
           </div>
           <div id="history-table" class="history-table"></div>
@@ -306,19 +306,18 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Produzione</p>
-              <h2>Telefono, Supabase e reminder alle 23</h2>
+              <h2>Deploy e reminder</h2>
             </div>
           </div>
           <div class="production-copy">
             <p>
-              Questa base funziona gia come PWA installabile. Per avere un vero
-              prompt serale anche a schermo spento, serve affiancare un backend
-              che invii push o messaggi schedulati.
+              L'app funziona gia come PWA installabile. Per avere un reminder
+              reale alle 23 anche a schermo spento serve il backend di invio
+              push schedulato.
             </p>
             <p>
-              Nel progetto trovi uno schema Supabase pronto per profili,
-              giornate e subscription push. La parte web e gia compatibile con
-              il modello multiutente.
+              Nel progetto trovi gia schema Supabase, gestione profili,
+              giornate, subscription push e base multiutente.
             </p>
           </div>
         </section>
