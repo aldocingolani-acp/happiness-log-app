@@ -47,15 +47,15 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Cloud</p>
-              <h2>Accesso e sincronizzazione</h2>
+              <h2>Salvataggio locale</h2>
             </div>
           </div>
           <div class="cloud-grid">
             <div class="cloud-panel">
               <p id="cloud-config-copy" class="builder-copy">
-                Configura `config.js` per attivare login, sync e reminder push.
+                Modalita locale attiva. I dati restano su questo dispositivo.
               </p>
-              <form id="auth-form" class="grid two-col">
+              <form id="auth-form" class="grid two-col hidden">
                 <label class="field">
                   <span>Email</span>
                   <input
@@ -74,9 +74,9 @@
             </div>
             <div class="cloud-panel">
               <p id="auth-summary" class="builder-copy">
-                Modalita locale attiva. Nessun account collegato.
+                Nessun login richiesto per l'uso personale.
               </p>
-              <div class="inline-actions cloud-inline">
+              <div class="inline-actions cloud-inline hidden">
                 <button id="sync-cloud" class="ghost-button" type="button">
                   Sincronizza cloud
                 </button>

@@ -175,7 +175,7 @@ function hydrateEntry(rawEntry = {}) {
   };
 }
 
-function bindGlobalEvents() {
+function _legacy_bindGlobalEvents() {
   document
     .getElementById("auth-form")
     .addEventListener("submit", handleEmailSignIn);
@@ -251,7 +251,7 @@ function bindGlobalEvents() {
     .addEventListener("change", importProfileFromFile);
 }
 
-function render() {
+function _legacy_render() {
   renderCloudPanel();
   renderProfileList();
   renderProfileBuilder();
@@ -277,14 +277,15 @@ function renderCloudPanel() {
 
   if (!APP_CONFIG.supabaseUrl || !APP_CONFIG.supabaseAnonKey) {
     configCopy.textContent =
-      "Configura config.js con URL e anon key Supabase per attivare login, sync e reminder push.";
-    authSummary.textContent = "Modalita locale attiva. Nessun account collegato.";
+      "Modalita locale attiva. I dati restano su questo dispositivo.";
+    authSummary.textContent = "Nessun login richiesto per l'uso personale.";
     authSubmit.disabled = true;
+    authEmail.disabled = true;
     syncButton.disabled = true;
     pullButton.disabled = true;
     logoutButton.disabled = true;
     cloudStatus.textContent =
-      "Supabase non configurato: l'app continua a funzionare offline sul dispositivo.";
+      "Cloud disattivato. L'app continua a funzionare in locale.";
     cloudStatus.className = "cloud-status warning";
     return;
   }
@@ -292,11 +293,12 @@ function renderCloudPanel() {
   if (!runtime.cloud.ready) {
     configCopy.textContent = runtime.cloud.loading
       ? "Connessione Supabase in inizializzazione."
-      : "Supabase configurato ma non raggiungibile o non valido.";
+      : "Cloud opzionale configurato, ma non necessario per l'uso locale.";
     authSummary.textContent = runtime.cloud.loading
-      ? "Sto preparando login e sincronizzazione cloud."
-      : "Controlla URL, anon key, redirect URL e CORS del progetto.";
+      ? "Sto verificando il cloud opzionale."
+      : "Puoi continuare a usare l'app in locale su questo dispositivo.";
     authSubmit.disabled = true;
+    authEmail.disabled = true;
     syncButton.disabled = true;
     pullButton.disabled = true;
     logoutButton.disabled = true;
@@ -306,8 +308,9 @@ function renderCloudPanel() {
   }
 
   configCopy.textContent =
-    "Magic link via email per accedere. Dopo il login puoi sincronizzare profili, giornate e subscription push.";
-  authSubmit.disabled = false;
+    "Per ora l'app salva i dati in locale su questo dispositivo. Il cloud resta opzionale.";
+  authSubmit.disabled = true;
+  authEmail.disabled = true;
   syncButton.disabled = !runtime.cloud.user || runtime.cloud.syncing;
   pullButton.disabled = !runtime.cloud.user || runtime.cloud.syncing;
   logoutButton.disabled = !runtime.cloud.user;
@@ -315,14 +318,14 @@ function renderCloudPanel() {
   if (runtime.cloud.user) {
     authSummary.textContent = `Connesso come ${runtime.cloud.user.email}.`;
   } else {
-    authSummary.textContent = "Inserisci la tua email per ricevere un magic link.";
+    authSummary.textContent = "Nessun login attivo. Stai usando il salvataggio locale.";
   }
 
   cloudStatus.textContent = runtime.cloud.status || "";
   cloudStatus.className = `cloud-status ${runtime.cloud.statusTone}`.trim();
 }
 
-function renderProfileList() {
+function _legacy_renderProfileList() {
   const list = document.getElementById("profile-list");
   list.innerHTML = "";
 
@@ -351,7 +354,7 @@ function renderProfileList() {
   });
 }
 
-function renderProfileBuilder() {
+function _legacy_renderProfileBuilder() {
   const builder = document.getElementById("profile-builder");
   const toggleButton = document.getElementById("toggle-profile-builder");
   const shouldShow = runtime.showProfileBuilder || state.profiles.length === 0;
@@ -359,7 +362,7 @@ function renderProfileBuilder() {
   toggleButton.textContent = state.profiles.length === 0 ? "Crea primo profilo" : "Nuovo profilo";
 }
 
-function renderEntryForm() {
+function _legacy_renderEntryForm() {
   const profile = getActiveProfile();
   const dateInput = document.getElementById("entry-date");
   const fields = document.getElementById("entry-fields");
@@ -429,7 +432,7 @@ function renderEntryForm() {
   notes.value = draft.notes || "";
 }
 
-function renderComputedSection() {
+function _legacy_renderComputedSection() {
   const profile = getActiveProfile();
   const draft = ensureDraft(profile);
   const computed = computeForDraft(profile, draft);
@@ -483,7 +486,7 @@ function renderComputedSection() {
   });
 }
 
-function renderSettings() {
+function _legacy_renderSettings() {
   const profile = getActiveProfile();
   const form = document.getElementById("settings-form");
 
@@ -509,7 +512,7 @@ function renderSettings() {
     profile.reminder?.timezone || "Europe/Rome";
 }
 
-function renderHistory() {
+function _legacy_renderHistory() {
   const profile = getActiveProfile();
   const mount = document.getElementById("history-table");
   const sorted = [...profile.entries].sort((a, b) => b.date.localeCompare(a.date));
@@ -621,13 +624,13 @@ function handleProfileCreate(event) {
   void syncProfilesToCloud({ pullAfterPush: false });
 }
 
-function handleDateChange(event) {
+function _legacy_handleDateChange(event) {
   runtime.selectedDate = event.target.value || todayIso();
   renderEntryForm();
   renderHistory();
 }
 
-function handleEntrySave(event) {
+function _legacy_handleEntrySave(event) {
   event.preventDefault();
   const profile = getActiveProfile();
   const draft = ensureDraft(profile);
@@ -661,7 +664,7 @@ function handleEntrySave(event) {
   void syncProfilesToCloud({ pullAfterPush: false });
 }
 
-function handleSettingsSave(event) {
+function _legacy_handleSettingsSave(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const profile = getActiveProfile();
@@ -735,7 +738,7 @@ async function requestNotificationPermission() {
   renderNotificationStatus();
 }
 
-function exportCurrentProfile() {
+function _legacy_exportCurrentProfile() {
   const profile = getActiveProfile();
   const payload = {
     exportedAt: new Date().toISOString(),
@@ -1300,7 +1303,7 @@ function ensureDraft(profile) {
   return runtime.drafts[key];
 }
 
-function getActiveProfile() {
+function _legacy_getActiveProfile() {
   return state.profiles.find((profile) => profile.id === state.activeProfileId) || state.profiles[0];
 }
 
@@ -1443,7 +1446,7 @@ function getActiveProfile() {
   return state.profiles.find((profile) => profile.id === state.activeProfileId) || state.profiles[0] || null;
 }
 
-function render() {
+function _legacy_render_v2() {
   renderCloudPanel();
   renderProfileList();
   renderProfileBuilder();
