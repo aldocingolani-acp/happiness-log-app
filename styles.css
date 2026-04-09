@@ -519,11 +519,13 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .profile-chip {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
   border-radius: 999px;
-  padding: 10px 14px;
   border: 1px solid rgba(30, 36, 48, 0.1);
   background: rgba(255, 255, 255, 0.84);
-  cursor: pointer;
+  padding: 6px;
 }
 
 .profile-chip.active {
@@ -531,12 +533,31 @@ input[type="range"]::-moz-range-thumb {
   border-color: rgba(156, 207, 192, 0.3);
 }
 
-.profile-chip strong,
-.profile-chip span {
+.profile-chip-main {
+  border: 0;
+  background: transparent;
+  padding: 4px 8px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.profile-chip-delete {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 12px;
+  background: rgba(239, 179, 173, 0.2);
+  color: #9b5d63;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.profile-chip-main strong,
+.profile-chip-main span {
   display: block;
 }
 
-.profile-chip span {
+.profile-chip-main span {
   font-size: 0.78rem;
   color: var(--muted);
 }

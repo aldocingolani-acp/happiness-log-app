@@ -1468,10 +1468,13 @@ function renderProfileList() {
   }
 
   state.profiles.forEach((profile) => {
+    const item = document.createElement("div");
+    item.className =
+      "profile-chip" + (profile.id === state.activeProfileId ? " active" : "");
+
     const button = document.createElement("button");
     button.type = "button";
-    button.className =
-      "profile-chip" + (profile.id === state.activeProfileId ? " active" : "");
+    button.className = "profile-chip-main";
     button.innerHTML = `
       <strong>${escapeHtml(profile.name)}</strong>
       <span>Iota ${DAILY_SCORE_SYMBOL}: ${formatWeights(profile.etaWeights)}</span>
@@ -1483,7 +1486,18 @@ function renderProfileList() {
       render();
       void maybeRegisterPushSubscription();
     });
-    list.appendChild(button);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "profile-chip-delete";
+    deleteButton.textContent = "Elimina";
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void handleProfileDelete(profile.id);
+    });
+
+    item.append(button, deleteButton);
+    list.appendChild(item);
   });
 }
 
@@ -1965,6 +1979,50 @@ function exportCurrentProfile() {
   anchor.download = `${slugify(profile.name)}-felicita-profile.json`;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+async function handleProfileDelete(profileId) {
+  const profile = state.profiles.find((item) => item.id === profileId);
+  if (!profile) {
+    return;
+  }
+
+  const message = `Eliminare il profilo ${profile.name}? Verranno rimosse anche ${profile.entries.length} giornate salvate collegate a questo profilo.`;
+  if (!window.confirm(message)) {
+    return;
+  }
+
+  if (runtime.cloud.client && runtime.cloud.user) {
+    setCloudStatus(`Eliminazione profilo ${profile.name} in corso...`, "warning");
+    try {
+      const { error } = await runtime.cloud.client
+        .from("happiness_profiles")
+        .delete()
+        .eq("id", profile.id);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.warn("Errore eliminazione profilo cloud.", error);
+      setCloudStatus(explainSupabaseError(error), "error");
+      return;
+    }
+  }
+
+  state.profiles = state.profiles.filter((item) => item.id !== profile.id);
+  Object.keys(runtime.drafts)
+    .filter((key) => key.startsWith(`${profile.id}:`))
+    .forEach((key) => delete runtime.drafts[key]);
+
+  if (state.activeProfileId === profile.id) {
+    state.activeProfileId = state.profiles[0]?.id || null;
+  }
+
+  runtime.showProfileBuilder = state.profiles.length === 0;
+  saveState();
+  render();
+  setCloudStatus(`Profilo ${profile.name} eliminato.`, "");
 }
 
 async function registerServiceWorker() {
