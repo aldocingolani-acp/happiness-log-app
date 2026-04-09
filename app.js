@@ -28,6 +28,7 @@ const DEFAULT_WINDOWS = {
   longDays: 548,
 };
 
+const APP_VERSION = "20260409b";
 const DAILY_SCORE_SYMBOL = "\u03B9";
 const OVERALL_SCORE_SYMBOL = "\u03C6";
 
@@ -60,6 +61,7 @@ let state = loadState();
 bootstrap();
 
 async function bootstrap() {
+  await resetLegacyCacheIfNeeded();
   runtime.cloud.serviceWorkerRegistration = await registerServiceWorker();
   await initCloud();
   render();
@@ -2035,6 +2037,30 @@ async function registerServiceWorker() {
   } catch (error) {
     console.warn("Service worker non registrato.", error);
     return null;
+  }
+}
+
+async function resetLegacyCacheIfNeeded() {
+  const storageKey = "felicita-pwa.cache-reset-version";
+
+  try {
+    if (localStorage.getItem(storageKey) === APP_VERSION) {
+      return;
+    }
+
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+
+    if ("caches" in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+    }
+
+    localStorage.setItem(storageKey, APP_VERSION);
+  } catch (error) {
+    console.warn("Reset cache legacy non riuscito.", error);
   }
 }
 

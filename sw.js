@@ -34,8 +34,25 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (event.request.url.endsWith("/config.js") || event.request.url.endsWith("\\config.js")) {
-    event.respondWith(fetch(event.request));
+  const requestUrl = new URL(event.request.url);
+  const isCriticalAsset =
+    requestUrl.pathname === "/" ||
+    requestUrl.pathname.endsWith("/index.html") ||
+    requestUrl.pathname.endsWith("/app.js") ||
+    requestUrl.pathname.endsWith("/styles.css") ||
+    requestUrl.pathname.endsWith("/config.js") ||
+    requestUrl.pathname.endsWith("/manifest.webmanifest");
+
+  if (isCriticalAsset) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 

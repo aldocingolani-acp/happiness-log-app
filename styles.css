@@ -704,6 +704,15 @@ input[type="range"]::-moz-range-thumb {
   display: none;
 }
 
+.build-footer {
+  margin-top: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 @keyframes rise {
   from {
     opacity: 0;
