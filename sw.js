@@ -1,10 +1,11 @@
-const CACHE_NAME = "felicita-pwa-cache-v2";
+const CACHE_NAME = "felicita-pwa-cache-v3";
 const APP_ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
-  "./manifest.webmanifest",
+  "./styles.css?v=20260409a",
+  "./app.js?v=20260409a",
+  "./config.js?v=20260409a",
+  "./manifest.webmanifest?v=20260409a",
   "./icons/icon.svg",
 ];
 
