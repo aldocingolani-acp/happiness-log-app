@@ -274,11 +274,12 @@ function renderCloudPanel() {
   const logoutButton = document.getElementById("logout-button");
 
   authEmail.value = runtime.cloud.authEmail;
+  authEmail.disabled = false;
 
   if (!APP_CONFIG.supabaseUrl || !APP_CONFIG.supabaseAnonKey) {
     configCopy.textContent =
-      "Modalita locale attiva. I dati restano su questo dispositivo.";
-    authSummary.textContent = "Nessun login richiesto per l'uso personale.";
+      "Configura config.js con URL e anon key Supabase per attivare login, sync e reminder push.";
+    authSummary.textContent = "Modalita locale attiva. Nessun account collegato.";
     authSubmit.disabled = true;
     authEmail.disabled = true;
     syncButton.disabled = true;
@@ -293,10 +294,10 @@ function renderCloudPanel() {
   if (!runtime.cloud.ready) {
     configCopy.textContent = runtime.cloud.loading
       ? "Connessione Supabase in inizializzazione."
-      : "Cloud opzionale configurato, ma non necessario per l'uso locale.";
+      : "Supabase configurato ma non raggiungibile o non valido.";
     authSummary.textContent = runtime.cloud.loading
-      ? "Sto verificando il cloud opzionale."
-      : "Puoi continuare a usare l'app in locale su questo dispositivo.";
+      ? "Sto preparando login e sincronizzazione cloud."
+      : "Controlla URL, anon key, redirect URL e CORS del progetto.";
     authSubmit.disabled = true;
     authEmail.disabled = true;
     syncButton.disabled = true;
@@ -308,9 +309,8 @@ function renderCloudPanel() {
   }
 
   configCopy.textContent =
-    "Per ora l'app salva i dati in locale su questo dispositivo. Il cloud resta opzionale.";
-  authSubmit.disabled = true;
-  authEmail.disabled = true;
+    "Magic link via email per accedere. Dopo il login puoi sincronizzare profili, giornate e subscription push.";
+  authSubmit.disabled = false;
   syncButton.disabled = !runtime.cloud.user || runtime.cloud.syncing;
   pullButton.disabled = !runtime.cloud.user || runtime.cloud.syncing;
   logoutButton.disabled = !runtime.cloud.user;
@@ -318,7 +318,7 @@ function renderCloudPanel() {
   if (runtime.cloud.user) {
     authSummary.textContent = `Connesso come ${runtime.cloud.user.email}.`;
   } else {
-    authSummary.textContent = "Nessun login attivo. Stai usando il salvataggio locale.";
+    authSummary.textContent = "Inserisci la tua email per ricevere un magic link.";
   }
 
   cloudStatus.textContent = runtime.cloud.status || "";
