@@ -1567,8 +1567,6 @@ function renderEntryForm() {
 
 function renderComputedSection() {
   const profile = getActiveProfile();
-  const summary = document.getElementById("score-summary");
-  const summaryCopy = document.getElementById("score-summary-copy");
   const breakdown = document.getElementById("iota-breakdown");
 
   if (!profile) {
@@ -1578,9 +1576,6 @@ function renderComputedSection() {
       `Iota ${DAILY_SCORE_SYMBOL}: media pesata della singola giornata.`;
     document.getElementById("iota-caption").textContent =
       `Fi ${OVERALL_SCORE_SYMBOL}: valore complessivo con memoria storica.`;
-    summary.textContent = "Nessun dato visibile";
-    summaryCopy.textContent =
-      "Chi apre il link da zero non vede numeri: i valori compaiono solo dopo accesso o creazione di un profilo.";
     breakdown.innerHTML = "";
     return;
   }
@@ -1594,8 +1589,6 @@ function renderComputedSection() {
     `Iota ${DAILY_SCORE_SYMBOL}: media pesata giornaliera delle quattro sfere.`;
   document.getElementById("iota-caption").textContent =
     `Fi ${OVERALL_SCORE_SYMBOL}: valore complessivo con memoria breve, media e lunga.`;
-  summary.textContent = `Iota ${DAILY_SCORE_SYMBOL} ${formatScore(computed.eta)} / Fi ${OVERALL_SCORE_SYMBOL} ${formatScore(computed.iota)}`;
-  summaryCopy.textContent = `Profilo ${profile.name}, data ${formatDateLabel(draft.date)}.`;
   breakdown.innerHTML = "";
 
   const cards = [
