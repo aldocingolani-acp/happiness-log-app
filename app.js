@@ -27,8 +27,9 @@ const DEFAULT_WINDOWS = {
   mediumDays: 45,
   longDays: 548,
 };
+const CHART_WINDOW_DAYS = 60;
 
-const APP_VERSION = "20260413b";
+const APP_VERSION = "20260413c";
 const DAILY_SCORE_SYMBOL = "\u03B9";
 const OVERALL_SCORE_SYMBOL = "\u03C6";
 
@@ -1952,8 +1953,8 @@ function renderCharts() {
     return;
   }
 
-  const sortedEntries = [...profile.entries].sort((a, b) => a.date.localeCompare(b.date));
-  if (sortedEntries.length === 0) {
+  const chartEntries = buildRollingChartEntries(profile, CHART_WINDOW_DAYS);
+  if (chartEntries.length === 0) {
     const emptyCopy =
       '<p class="chart-empty">Salva almeno una giornata per vedere l\'andamento nel tempo.</p>';
     sphereMount.innerHTML = emptyCopy;
@@ -1961,7 +1962,7 @@ function renderCharts() {
     return;
   }
 
-  renderLineChart(sphereMount, sortedEntries, [
+  renderLineChart(sphereMount, chartEntries, [
     { label: "Relazionale", color: "#f0a39b", accessor: (entry) => entry.spheres.relational },
     { label: "Espressiva", color: "#f3c78c", accessor: (entry) => entry.spheres.expressive },
     { label: "Riflessiva", color: "#98bfd9", accessor: (entry) => entry.spheres.reflective },
@@ -1969,10 +1970,57 @@ function renderCharts() {
     { label: `Iota ${DAILY_SCORE_SYMBOL}`, color: "#7ca592", accessor: (entry) => entry.eta },
   ]);
 
-  renderLineChart(summaryMount, sortedEntries, [
+  renderLineChart(summaryMount, chartEntries, [
     { label: `Iota ${DAILY_SCORE_SYMBOL}`, color: "#7ca592", accessor: (entry) => entry.eta },
     { label: `Fi ${OVERALL_SCORE_SYMBOL}`, color: "#d18f94", accessor: (entry) => entry.iota },
   ]);
+}
+
+function buildRollingChartEntries(profile, windowDays = CHART_WINDOW_DAYS) {
+  const sortedEntries = [...profile.entries].sort((a, b) => a.date.localeCompare(b.date));
+  if (sortedEntries.length === 0) {
+    return [];
+  }
+
+  const lastSavedEntry = sortedEntries[sortedEntries.length - 1];
+  const endDate = todayIso() > lastSavedEntry.date ? todayIso() : lastSavedEntry.date;
+  const startDate = shiftIsoDate(endDate, -(windowDays - 1));
+  const entriesByDate = new Map(sortedEntries.map((entry) => [entry.date, entry]));
+  const seedEntry = sortedEntries.find((entry) => entry.date >= startDate) || lastSavedEntry;
+  const workingProfile = { ...profile, entries: [] };
+  const chartEntries = [];
+  let carryEntry = seedEntry;
+
+  for (let dayIndex = 0; dayIndex < windowDays; dayIndex += 1) {
+    const isoDate = shiftIsoDate(startDate, dayIndex);
+    const actualEntry = entriesByDate.get(isoDate);
+    const baseEntry = actualEntry || carryEntry || seedEntry;
+    if (!baseEntry) {
+      continue;
+    }
+
+    const chartEntry = {
+      ...baseEntry,
+      id: actualEntry?.id || `chart-${isoDate}`,
+      date: isoDate,
+      spheres: actualEntry ? { ...actualEntry.spheres } : { ...baseEntry.spheres },
+      notes: actualEntry?.notes || "",
+      synthetic: !actualEntry,
+    };
+
+    const computed = computeForDraft(workingProfile, chartEntry);
+    const normalizedEntry = {
+      ...chartEntry,
+      eta: round2(computed.eta),
+      iota: round2(computed.iota),
+    };
+
+    workingProfile.entries.push(normalizedEntry);
+    chartEntries.push(normalizedEntry);
+    carryEntry = normalizedEntry;
+  }
+
+  return chartEntries;
 }
 
 function renderLineChart(mount, entries, seriesList) {
