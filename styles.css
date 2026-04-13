@@ -455,6 +455,11 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(255, 255, 255, 0.86);
 }
 
+.breakdown-card-full {
+  grid-column: 1 / -1;
+  background: linear-gradient(180deg, rgba(242, 233, 214, 0.85), rgba(255, 255, 255, 0.96));
+}
+
 .breakdown-card strong {
   display: block;
   font-size: 1.28rem;
@@ -464,6 +469,19 @@ input[type="range"]::-moz-range-thumb {
 .breakdown-card span {
   color: var(--muted);
   font-size: 0.83rem;
+}
+
+.breakdown-detail {
+  margin: 10px 0 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.breakdown-meta {
+  display: block;
+  margin-top: 8px;
+  font-weight: 600;
 }
 
 .cloud-grid {

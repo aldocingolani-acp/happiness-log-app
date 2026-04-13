@@ -1196,27 +1196,30 @@ function computeForDraft(profile, draft) {
   const longStart = mediumEnd + 1;
   const longEnd = profile.windows.longDays;
 
-  const recentAvg = computeWindowAverage(
+  const recentWindow = computeWindowStats(
     entryMap,
     draft.date,
     recentStart,
     recentEnd,
     profile.baselines.recent
   );
-  const mediumAvg = computeWindowAverage(
+  const mediumWindow = computeWindowStats(
     entryMap,
     draft.date,
     mediumStart,
     mediumEnd,
     profile.baselines.medium
   );
-  const longAvg = computeWindowAverage(
+  const longWindow = computeWindowStats(
     entryMap,
     draft.date,
     longStart,
     longEnd,
     profile.baselines.long
   );
+  const recentAvg = recentWindow.avg;
+  const mediumAvg = mediumWindow.avg;
+  const longAvg = longWindow.avg;
 
   const normalizedIotaWeights = normalizeWeights(profile.iotaWeights);
   const iota =
@@ -1233,6 +1236,9 @@ function computeForDraft(profile, draft) {
       recentAvg,
       mediumAvg,
       longAvg,
+      recentWindow,
+      mediumWindow,
+      longWindow,
     },
   };
 }
@@ -1267,17 +1273,49 @@ function computeEta(weights, spheres) {
   );
 }
 
-function computeWindowAverage(entryMap, anchorDate, startOffset, endOffset, fallback) {
+function computeWindowStats(entryMap, anchorDate, startOffset, endOffset, fallback) {
   if (endOffset < startOffset) {
-    return fallback;
+    return {
+      avg: fallback,
+      totalDays: 0,
+      actualDays: 0,
+      fallbackDays: 0,
+      fallback,
+    };
   }
 
   const values = [];
+  let actualDays = 0;
+  let fallbackDays = 0;
   for (let offset = startOffset; offset <= endOffset; offset += 1) {
     const iso = shiftIsoDate(anchorDate, -offset);
-    values.push(entryMap.get(iso)?.eta ?? fallback);
+    const value = entryMap.get(iso)?.eta;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      values.push(value);
+      actualDays += 1;
+    } else {
+      values.push(fallback);
+      fallbackDays += 1;
+    }
   }
-  return average(values);
+  return {
+    avg: average(values),
+    totalDays: values.length,
+    actualDays,
+    fallbackDays,
+    fallback,
+  };
+}
+
+function computeWindowAverage(entryMap, anchorDate, startOffset, endOffset, fallback) {
+  return computeWindowStats(entryMap, anchorDate, startOffset, endOffset, fallback).avg;
+}
+
+function describeWindowRange(startOffset, endOffset) {
+  if (startOffset === endOffset) {
+    return `Giorno ${startOffset} precedente`;
+  }
+  return `Giorni ${startOffset}-${endOffset} precedenti`;
 }
 
 function ensureDraft(profile) {
@@ -1607,26 +1645,61 @@ function renderComputedSection() {
     `Fi ${OVERALL_SCORE_SYMBOL}: valore complessivo con memoria breve, media e lunga.`;
   breakdown.innerHTML = "";
 
+  const summaryCard = document.createElement("article");
+  summaryCard.className = "breakdown-card breakdown-card-full";
+  summaryCard.innerHTML = `
+    <span>Periodo completo usato per Fi ${OVERALL_SCORE_SYMBOL}</span>
+    <strong>Oggi + ultimi ${profile.windows.longDays} giorni</strong>
+    <p class="breakdown-detail">
+      Baseline attivi: ${describeWindowRange(1, profile.windows.recentDays)} = ${formatScore(
+        profile.baselines.recent
+      )},
+      ${describeWindowRange(profile.windows.recentDays + 1, profile.windows.mediumDays)} = ${formatScore(
+        profile.baselines.medium
+      )},
+      ${describeWindowRange(profile.windows.mediumDays + 1, profile.windows.longDays)} = ${formatScore(
+        profile.baselines.long
+      )}.
+    </p>
+  `;
+  breakdown.appendChild(summaryCard);
+
   const cards = [
     {
       label: "Giorno selezionato",
       avg: computed.components.todayEta,
       weight: profile.iotaWeights.today,
+      detail: "Nessun baseline. Conta solo la media pesata dei 4 voti del giorno.",
+      meta: "",
     },
     {
       label: `1-${profile.windows.recentDays} giorni`,
       avg: computed.components.recentAvg,
       weight: profile.iotaWeights.recent,
+      detail: `${describeWindowRange(1, profile.windows.recentDays)} | baseline ${formatScore(
+        computed.components.recentWindow.fallback
+      )}`,
+      meta: `Dati reali ${computed.components.recentWindow.actualDays}/${computed.components.recentWindow.totalDays} | fallback ${computed.components.recentWindow.fallbackDays}`,
     },
     {
       label: `${profile.windows.recentDays + 1}-${profile.windows.mediumDays} giorni`,
       avg: computed.components.mediumAvg,
       weight: profile.iotaWeights.medium,
+      detail: `${describeWindowRange(
+        profile.windows.recentDays + 1,
+        profile.windows.mediumDays
+      )} | baseline ${formatScore(computed.components.mediumWindow.fallback)}`,
+      meta: `Dati reali ${computed.components.mediumWindow.actualDays}/${computed.components.mediumWindow.totalDays} | fallback ${computed.components.mediumWindow.fallbackDays}`,
     },
     {
       label: `${profile.windows.mediumDays + 1}-${profile.windows.longDays} giorni`,
       avg: computed.components.longAvg,
       weight: profile.iotaWeights.long,
+      detail: `${describeWindowRange(
+        profile.windows.mediumDays + 1,
+        profile.windows.longDays
+      )} | baseline ${formatScore(computed.components.longWindow.fallback)}`,
+      meta: `Dati reali ${computed.components.longWindow.actualDays}/${computed.components.longWindow.totalDays} | fallback ${computed.components.longWindow.fallbackDays}`,
     },
   ];
 
@@ -1636,7 +1709,9 @@ function renderComputedSection() {
     card.innerHTML = `
       <span>${item.label}</span>
       <strong>${formatScore(item.avg)}</strong>
+      <p class="breakdown-detail">${item.detail}</p>
       <span>Peso ${formatPercent(item.weight)}</span>
+      ${item.meta ? `<span class="breakdown-meta">${item.meta}</span>` : ""}
     `;
     breakdown.appendChild(card);
   });
