@@ -365,6 +365,17 @@ input[type="range"]::-moz-range-thumb {
   transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
+.button-busy {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.button-success {
+  background: linear-gradient(135deg, rgba(156, 207, 192, 0.95), rgba(206, 236, 225, 0.95));
+  color: #4d6f63;
+  border-color: rgba(94, 133, 118, 0.25);
+}
+
 .primary-button {
   background: linear-gradient(135deg, #f4b8b1, #f6d7ad);
   color: #5c4955;

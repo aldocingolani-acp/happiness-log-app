@@ -29,7 +29,7 @@ const DEFAULT_WINDOWS = {
 };
 const CHART_WINDOW_DAYS = 60;
 
-const APP_VERSION = "20260413c";
+const APP_VERSION = "20260413d";
 const DAILY_SCORE_SYMBOL = "\u03B9";
 const OVERALL_SCORE_SYMBOL = "\u03C6";
 
@@ -1220,6 +1220,41 @@ function setCloudStatus(message, tone = "", shouldRender = true) {
   }
 }
 
+function startButtonBusy(button, busyLabel) {
+  if (!button) {
+    return () => {};
+  }
+
+  const originalLabel = button.dataset.originalLabel || button.textContent;
+  button.dataset.originalLabel = originalLabel;
+  button.textContent = busyLabel;
+  button.classList.add("button-busy");
+  button.disabled = true;
+
+  return () => {
+    button.textContent = button.dataset.originalLabel || originalLabel;
+    button.classList.remove("button-busy");
+    button.disabled = false;
+  };
+}
+
+function flashButtonSuccess(button, successLabel = "Fatto", durationMs = 1400) {
+  if (!button) {
+    return;
+  }
+
+  const originalLabel = button.dataset.originalLabel || button.textContent;
+  button.textContent = successLabel;
+  button.classList.remove("button-busy");
+  button.classList.add("button-success");
+  button.disabled = false;
+
+  window.setTimeout(() => {
+    button.textContent = originalLabel;
+    button.classList.remove("button-success");
+  }, durationMs);
+}
+
 function computeForDraft(profile, draft) {
   const entryMap = new Map(profile.entries.map((entry) => [entry.date, entry]));
   const eta = computeEta(profile.etaWeights, draft.spheres);
@@ -1609,7 +1644,7 @@ function renderProfileList() {
     deleteButton.textContent = "Elimina";
     deleteButton.addEventListener("click", (event) => {
       event.stopPropagation();
-      void handleProfileDelete(profile.id);
+      void handleProfileDelete(profile.id, deleteButton);
     });
 
     item.append(button);
@@ -1621,7 +1656,7 @@ function renderProfileList() {
       mergeButton.textContent = "Unisci";
       mergeButton.addEventListener("click", (event) => {
         event.stopPropagation();
-        void handleProfileMerge(profile.id);
+        void handleProfileMerge(profile.id, mergeButton);
       });
       item.appendChild(mergeButton);
     }
@@ -1983,44 +2018,75 @@ function buildRollingChartEntries(profile, windowDays = CHART_WINDOW_DAYS) {
   }
 
   const lastSavedEntry = sortedEntries[sortedEntries.length - 1];
-  const endDate = todayIso() > lastSavedEntry.date ? todayIso() : lastSavedEntry.date;
+  const endDate = lastSavedEntry.date;
   const startDate = shiftIsoDate(endDate, -(windowDays - 1));
   const entriesByDate = new Map(sortedEntries.map((entry) => [entry.date, entry]));
-  const seedEntry = sortedEntries.find((entry) => entry.date >= startDate) || lastSavedEntry;
   const workingProfile = { ...profile, entries: [] };
   const chartEntries = [];
-  let carryEntry = seedEntry;
 
   for (let dayIndex = 0; dayIndex < windowDays; dayIndex += 1) {
     const isoDate = shiftIsoDate(startDate, dayIndex);
     const actualEntry = entriesByDate.get(isoDate);
-    const baseEntry = actualEntry || carryEntry || seedEntry;
-    if (!baseEntry) {
-      continue;
-    }
+    const daysBack = windowDays - 1 - dayIndex;
+    const syntheticEta = baselineForHistoryOffset(profile, daysBack);
 
-    const chartEntry = {
-      ...baseEntry,
-      id: actualEntry?.id || `chart-${isoDate}`,
-      date: isoDate,
-      spheres: actualEntry ? { ...actualEntry.spheres } : { ...baseEntry.spheres },
-      notes: actualEntry?.notes || "",
-      synthetic: !actualEntry,
-    };
+    const sourceEntry = actualEntry
+      ? {
+          ...actualEntry,
+          spheres: { ...actualEntry.spheres },
+        }
+      : {
+          id: `chart-${isoDate}`,
+          date: isoDate,
+          spheres: {
+            relational: syntheticEta,
+            expressive: syntheticEta,
+            reflective: syntheticEta,
+            virtuous: syntheticEta,
+          },
+          notes: "",
+          synthetic: true,
+        };
 
-    const computed = computeForDraft(workingProfile, chartEntry);
+    const computed = computeForDraft(workingProfile, sourceEntry);
     const normalizedEntry = {
-      ...chartEntry,
+      ...sourceEntry,
       eta: round2(computed.eta),
       iota: round2(computed.iota),
     };
 
     workingProfile.entries.push(normalizedEntry);
-    chartEntries.push(normalizedEntry);
-    carryEntry = normalizedEntry;
+    chartEntries.push({
+      ...normalizedEntry,
+      spheres: actualEntry
+        ? { ...actualEntry.spheres }
+        : {
+            relational: null,
+            expressive: null,
+            reflective: null,
+            virtuous: null,
+          },
+      synthetic: !actualEntry,
+    });
   }
 
   return chartEntries;
+}
+
+function baselineForHistoryOffset(profile, offsetDays) {
+  if (offsetDays <= 0) {
+    return null;
+  }
+
+  if (offsetDays <= profile.windows.recentDays) {
+    return profile.baselines.recent;
+  }
+
+  if (offsetDays <= profile.windows.mediumDays) {
+    return profile.baselines.medium;
+  }
+
+  return profile.baselines.long;
 }
 
 function renderLineChart(mount, entries, seriesList) {
@@ -2060,14 +2126,20 @@ function renderLineChart(mount, entries, seriesList) {
 
   const lines = seriesList
     .map((series) => {
-      const points = entries.map((entry, index) => ({
-        x: round2(xForIndex(index)),
-        y: round2(yForValue(series.accessor(entry))),
-      }));
-      const path = points
-        .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-        .join(" ");
+      const points = entries.map((entry, index) => {
+        const value = series.accessor(entry);
+        if (value === null || value === undefined || Number.isNaN(Number(value))) {
+          return null;
+        }
+
+        return {
+          x: round2(xForIndex(index)),
+          y: round2(yForValue(value)),
+        };
+      });
+      const path = buildChartPath(points);
       const dots = points
+        .filter(Boolean)
         .map(
           (point) =>
             `<circle class="chart-point" cx="${point.x}" cy="${point.y}" r="4" fill="${series.color}" />`
@@ -2101,6 +2173,23 @@ function renderLineChart(mount, entries, seriesList) {
   `;
 }
 
+function buildChartPath(points) {
+  let path = "";
+  let segmentOpen = false;
+
+  points.forEach((point) => {
+    if (!point) {
+      segmentOpen = false;
+      return;
+    }
+
+    path += `${segmentOpen ? " L" : "M"} ${point.x} ${point.y}`;
+    segmentOpen = true;
+  });
+
+  return path.trim();
+}
+
 function pickAxisLabelIndexes(length) {
   if (length <= 6) {
     return Array.from({ length }, (_value, index) => index);
@@ -2114,10 +2203,14 @@ function formatDateLabel(isoDate) {
   return `${day}/${month}`;
 }
 
-function handleEntrySave(event) {
+async function handleEntrySave(event) {
   event.preventDefault();
+  const submitButton =
+    event.submitter || document.querySelector('#entry-form button[type="submit"]');
+  const releaseButton = startButtonBusy(submitButton, "Salvataggio...");
   const profile = getActiveProfile();
   if (!profile) {
+    releaseButton();
     return;
   }
 
@@ -2148,7 +2241,17 @@ function handleEntrySave(event) {
   profile.updatedAt = nowIso;
   saveState();
   render();
-  void syncProfilesToCloud({ pullAfterPush: false });
+  setCloudStatus(`Giornata ${entry.date} salvata su ${profile.name}.`, "");
+
+  if (runtime.cloud.client && runtime.cloud.user) {
+    await syncProfilesToCloud({ pullAfterPush: true });
+  }
+
+  releaseButton();
+  flashButtonSuccess(
+    document.querySelector('#entry-form button[type="submit"]'),
+    "Salvato"
+  );
 }
 
 function handleSettingsSave(event) {
@@ -2232,7 +2335,7 @@ function exportCurrentProfile() {
   URL.revokeObjectURL(url);
 }
 
-async function handleProfileDelete(profileId) {
+async function handleProfileDelete(profileId, triggerButton = null) {
   const profile = state.profiles.find((item) => item.id === profileId);
   if (!profile) {
     return;
@@ -2243,9 +2346,35 @@ async function handleProfileDelete(profileId) {
     return;
   }
 
+  const releaseButton = startButtonBusy(triggerButton, "Elimino...");
+
   if (runtime.cloud.client && runtime.cloud.user) {
     setCloudStatus(`Eliminazione profilo ${profile.name} in corso...`, "warning");
     try {
+      const { error: entriesError } = await runtime.cloud.client
+        .from("happiness_entries")
+        .delete()
+        .eq("profile_id", profile.id);
+      if (entriesError) {
+        throw entriesError;
+      }
+
+      const { error: pushError } = await runtime.cloud.client
+        .from("push_subscriptions")
+        .delete()
+        .eq("profile_id", profile.id);
+      if (pushError) {
+        throw pushError;
+      }
+
+      const { error: reminderError } = await runtime.cloud.client
+        .from("happiness_reminder_logs")
+        .delete()
+        .eq("profile_id", profile.id);
+      if (reminderError) {
+        throw reminderError;
+      }
+
       const { error } = await runtime.cloud.client
         .from("happiness_profiles")
         .delete()
@@ -2257,6 +2386,7 @@ async function handleProfileDelete(profileId) {
 
       await pullProfilesFromCloud({ silent: true });
     } catch (error) {
+      releaseButton();
       console.warn("Errore eliminazione profilo cloud.", error);
       setCloudStatus(explainSupabaseError(error), "error");
       return;
@@ -2275,10 +2405,11 @@ async function handleProfileDelete(profileId) {
   runtime.showProfileBuilder = state.profiles.length === 0;
   saveState();
   render();
+  releaseButton();
   setCloudStatus(`Profilo ${profile.name} eliminato.`, "");
 }
 
-async function handleProfileMerge(sourceProfileId) {
+async function handleProfileMerge(sourceProfileId, triggerButton = null) {
   const targetProfile = getActiveProfile();
   const sourceProfile = state.profiles.find((item) => item.id === sourceProfileId);
 
@@ -2292,6 +2423,8 @@ async function handleProfileMerge(sourceProfileId) {
   if (!window.confirm(message)) {
     return;
   }
+
+  const releaseButton = startButtonBusy(triggerButton, "Unisco...");
 
   const mergedTarget = hydrateProfile({
     ...targetProfile,
@@ -2337,6 +2470,30 @@ async function handleProfileMerge(sourceProfileId) {
         }
       }
 
+      const { error: cleanupEntriesError } = await runtime.cloud.client
+        .from("happiness_entries")
+        .delete()
+        .eq("profile_id", sourceProfile.id);
+      if (cleanupEntriesError) {
+        throw cleanupEntriesError;
+      }
+
+      const { error: cleanupPushError } = await runtime.cloud.client
+        .from("push_subscriptions")
+        .delete()
+        .eq("profile_id", sourceProfile.id);
+      if (cleanupPushError) {
+        throw cleanupPushError;
+      }
+
+      const { error: cleanupReminderError } = await runtime.cloud.client
+        .from("happiness_reminder_logs")
+        .delete()
+        .eq("profile_id", sourceProfile.id);
+      if (cleanupReminderError) {
+        throw cleanupReminderError;
+      }
+
       const { error: deleteError } = await runtime.cloud.client
         .from("happiness_profiles")
         .delete()
@@ -2346,18 +2503,21 @@ async function handleProfileMerge(sourceProfileId) {
       }
 
       await pullProfilesFromCloud({ silent: true });
+      releaseButton();
       setCloudStatus(
         `Profili uniti. ${targetProfile.name} ora contiene ${mergedTarget.entries.length} giornate.`,
         ""
       );
       return;
     } catch (error) {
+      releaseButton();
       console.warn("Errore merge profili cloud.", error);
       setCloudStatus(explainSupabaseError(error), "error");
       return;
     }
   }
 
+  releaseButton();
   setCloudStatus(
     `Profili uniti in locale. ${targetProfile.name} ora contiene ${mergedTarget.entries.length} giornate.`,
     ""
