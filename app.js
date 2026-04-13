@@ -28,7 +28,7 @@ const DEFAULT_WINDOWS = {
   longDays: 548,
 };
 
-const APP_VERSION = "20260409b";
+const APP_VERSION = "20260413a";
 const DAILY_SCORE_SYMBOL = "\u03B9";
 const OVERALL_SCORE_SYMBOL = "\u03C6";
 
@@ -1536,6 +1536,7 @@ function _legacy_render_v2() {
 function renderProfileList() {
   const list = document.getElementById("profile-list");
   list.innerHTML = "";
+  const activeProfile = getActiveProfile();
 
   if (state.profiles.length === 0) {
     list.innerHTML = '<p class="empty-copy">Nessun profilo presente su questo dispositivo.</p>';
@@ -1571,7 +1572,21 @@ function renderProfileList() {
       void handleProfileDelete(profile.id);
     });
 
-    item.append(button, deleteButton);
+    item.append(button);
+
+    if (activeProfile && activeProfile.id !== profile.id) {
+      const mergeButton = document.createElement("button");
+      mergeButton.type = "button";
+      mergeButton.className = "profile-chip-merge";
+      mergeButton.textContent = "Unisci";
+      mergeButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void handleProfileMerge(profile.id);
+      });
+      item.appendChild(mergeButton);
+    }
+
+    item.append(deleteButton);
     list.appendChild(item);
   });
 }
@@ -2135,6 +2150,112 @@ async function handleProfileDelete(profileId) {
   saveState();
   render();
   setCloudStatus(`Profilo ${profile.name} eliminato.`, "");
+}
+
+async function handleProfileMerge(sourceProfileId) {
+  const targetProfile = getActiveProfile();
+  const sourceProfile = state.profiles.find((item) => item.id === sourceProfileId);
+
+  if (!targetProfile || !sourceProfile || sourceProfile.id === targetProfile.id) {
+    return;
+  }
+
+  const message =
+    `Unire il profilo ${sourceProfile.name} dentro ${targetProfile.name}? ` +
+    `Le ${sourceProfile.entries.length} giornate del profilo da unire verranno assorbite nel profilo attivo.`;
+  if (!window.confirm(message)) {
+    return;
+  }
+
+  const mergedTarget = hydrateProfile({
+    ...targetProfile,
+    entries: mergeEntriesByDate(targetProfile.entries, sourceProfile.entries),
+    updatedAt: new Date().toISOString(),
+  });
+  recomputeProfileEntries(mergedTarget);
+
+  state.profiles = state.profiles
+    .map((item) => (item.id === mergedTarget.id ? mergedTarget : item))
+    .filter((item) => item.id !== sourceProfile.id);
+  state.activeProfileId = mergedTarget.id;
+
+  Object.keys(runtime.drafts)
+    .filter((key) => key.startsWith(`${sourceProfile.id}:`))
+    .forEach((key) => delete runtime.drafts[key]);
+
+  saveState();
+  render();
+
+  if (runtime.cloud.client && runtime.cloud.user) {
+    setCloudStatus(`Unione profili in corso...`, "warning");
+    try {
+      const userId = runtime.cloud.user.id;
+      const profilePayload = serializeProfileForCloud(mergedTarget, userId);
+      const entryPayload = mergedTarget.entries.map((entry) =>
+        serializeEntryForCloud(mergedTarget, entry)
+      );
+
+      const { error: profileError } = await runtime.cloud.client
+        .from("happiness_profiles")
+        .upsert([profilePayload], { onConflict: "id" });
+      if (profileError) {
+        throw profileError;
+      }
+
+      if (entryPayload.length > 0) {
+        const { error: entryError } = await runtime.cloud.client
+          .from("happiness_entries")
+          .upsert(entryPayload, { onConflict: "id" });
+        if (entryError) {
+          throw entryError;
+        }
+      }
+
+      const { error: deleteError } = await runtime.cloud.client
+        .from("happiness_profiles")
+        .delete()
+        .eq("id", sourceProfile.id);
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      await pullProfilesFromCloud({ silent: true });
+      setCloudStatus(
+        `Profili uniti. ${targetProfile.name} ora contiene ${mergedTarget.entries.length} giornate.`,
+        ""
+      );
+      return;
+    } catch (error) {
+      console.warn("Errore merge profili cloud.", error);
+      setCloudStatus(explainSupabaseError(error), "error");
+      return;
+    }
+  }
+
+  setCloudStatus(
+    `Profili uniti in locale. ${targetProfile.name} ora contiene ${mergedTarget.entries.length} giornate.`,
+    ""
+  );
+}
+
+function mergeEntriesByDate(targetEntries = [], sourceEntries = []) {
+  const byDate = new Map();
+
+  [...targetEntries, ...sourceEntries].forEach((entry) => {
+    const existing = byDate.get(entry.date);
+    if (!existing) {
+      byDate.set(entry.date, structuredClone(entry));
+      return;
+    }
+
+    const existingUpdatedAt = Date.parse(existing.updatedAt || existing.savedAt || 0);
+    const incomingUpdatedAt = Date.parse(entry.updatedAt || entry.savedAt || 0);
+    if (incomingUpdatedAt >= existingUpdatedAt) {
+      byDate.set(entry.date, structuredClone(entry));
+    }
+  });
+
+  return [...byDate.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
 
 async function registerServiceWorker() {

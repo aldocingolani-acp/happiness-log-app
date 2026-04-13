@@ -570,6 +570,16 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
+.profile-chip-merge {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 12px;
+  background: rgba(156, 207, 192, 0.24);
+  color: #5e8576;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .profile-chip-main strong,
 .profile-chip-main span {
   display: block;
