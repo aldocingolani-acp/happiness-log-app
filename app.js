@@ -838,7 +838,7 @@ async function initCloud() {
 
       if (runtime.cloud.user) {
         setCloudStatus(`Connesso come ${runtime.cloud.user.email}.`, "", true);
-        void syncProfilesToCloud({ pullAfterPush: true });
+        void syncSessionProfiles();
       } else {
         setCloudStatus("Sessione cloud scollegata.", "warning", true);
         render();
@@ -847,7 +847,7 @@ async function initCloud() {
 
     if (runtime.cloud.user) {
       setCloudStatus(`Connesso come ${runtime.cloud.user.email}.`, "", false);
-      await syncProfilesToCloud({ pullAfterPush: true });
+      await syncSessionProfiles();
     } else {
       setCloudStatus("Supabase pronto. Accedi con il magic link per sincronizzare.", "warning", false);
     }
@@ -858,6 +858,39 @@ async function initCloud() {
     console.warn("Errore inizializzazione Supabase.", error);
     setCloudStatus(explainSupabaseError(error), "error", false);
   }
+}
+
+async function syncSessionProfiles() {
+  if (!runtime.cloud.client || !runtime.cloud.user) {
+    return;
+  }
+
+  const pulled = await pullProfilesFromCloud({
+    silent: true,
+    suppressEmptyStatus: true,
+  });
+
+  if (pulled.profileCount > 0) {
+    runtime.cloud.lastSyncAt = new Date().toISOString();
+    setCloudStatus(
+      `Cloud caricato alle ${new Date(runtime.cloud.lastSyncAt).toLocaleTimeString("it-IT", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}.`,
+      ""
+    );
+    await maybeRegisterPushSubscription();
+    render();
+    return;
+  }
+
+  if (state.profiles.length > 0) {
+    await syncProfilesToCloud({ pullAfterPush: true });
+    return;
+  }
+
+  setCloudStatus("Login completato. Nessun dato cloud trovato.", "");
+  render();
 }
 
 async function handleEmailSignIn(event) {
@@ -984,7 +1017,7 @@ async function syncProfilesToCloud(options = {}) {
 async function pullProfilesFromCloud(options = {}) {
   if (!runtime.cloud.client || !runtime.cloud.user) {
     setCloudStatus("Serve un login attivo per leggere dal cloud.", "warning");
-    return;
+    return { profileCount: 0, pulled: false };
   }
 
   if (!options.silent) {
@@ -1003,10 +1036,10 @@ async function pullProfilesFromCloud(options = {}) {
     }
 
     if (!profileRows || profileRows.length === 0) {
-      if (!options.silent) {
+      if (!options.silent && !options.suppressEmptyStatus) {
         setCloudStatus("Nessun profilo cloud trovato. Resta disponibile il contenuto locale.", "warning");
       }
-      return;
+      return { profileCount: 0, pulled: false };
     }
 
     const profileIds = profileRows.map((row) => row.id);
@@ -1041,9 +1074,11 @@ async function pullProfilesFromCloud(options = {}) {
     if (!options.silent) {
       setCloudStatus("Dati cloud caricati nel dispositivo.", "");
     }
+    return { profileCount: state.profiles.length, pulled: true };
   } catch (error) {
     console.warn("Errore pull cloud.", error);
     setCloudStatus(explainSupabaseError(error), "error");
+    return { profileCount: 0, pulled: false, error };
   }
 }
 
