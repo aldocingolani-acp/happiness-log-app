@@ -8,9 +8,9 @@
       name="description"
       content="PWA per registrare quattro sfere giornaliere e calcolare una metrica quotidiana e una complessiva."
     />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260413a" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260413b" />
     <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=20260413a" />
+    <link rel="stylesheet" href="./styles.css?v=20260413b" />
     <title>Happiness Log</title>
   </head>
   <body>
@@ -43,6 +43,27 @@
       </nav>
 
       <main class="layout">
+        <section class="card metrics-card" data-tab-panel="input">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Stato attuale</p>
+              <h2>Ultima giornata salvata</h2>
+            </div>
+          </div>
+          <div class="metrics-grid">
+            <article class="metric-tile">
+              <span>Iota &#953;</span>
+              <strong id="current-eta-value">--</strong>
+              <p id="current-eta-caption">Nessuna giornata salvata.</p>
+            </article>
+            <article class="metric-tile accent">
+              <span>Fi &#966;</span>
+              <strong id="current-iota-value">--</strong>
+              <p id="current-iota-caption">Salva una giornata per vedere lo stato attuale.</p>
+            </article>
+          </div>
+        </section>
+
         <section class="card" data-tab-panel="input">
           <div class="section-head">
             <div>
@@ -376,10 +397,10 @@
         </section>
       </main>
 
-      <footer class="build-footer">Build 20260413a</footer>
+      <footer class="build-footer">Build 20260413b</footer>
     </div>
 
-    <script src="./config.js?v=20260413a"></script>
-    <script src="./app.js?v=20260413a" type="module"></script>
+    <script src="./config.js?v=20260413b"></script>
+    <script src="./app.js?v=20260413b" type="module"></script>
   </body>
 </html>

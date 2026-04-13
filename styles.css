@@ -484,6 +484,13 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 600;
 }
 
+.breakdown-note {
+  grid-column: 1 / -1;
+  margin: 4px 2px 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .cloud-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

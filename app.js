@@ -28,7 +28,7 @@ const DEFAULT_WINDOWS = {
   longDays: 548,
 };
 
-const APP_VERSION = "20260413a";
+const APP_VERSION = "20260413b";
 const DAILY_SCORE_SYMBOL = "\u03B9";
 const OVERALL_SCORE_SYMBOL = "\u03C6";
 
@@ -1378,6 +1378,45 @@ function ensureDraft(profile) {
   return runtime.drafts[key];
 }
 
+function getLatestSavedEntry(profile) {
+  if (!profile || profile.entries.length === 0) {
+    return null;
+  }
+
+  return [...profile.entries].sort((left, right) => {
+    const dateCompare = right.date.localeCompare(left.date);
+    if (dateCompare !== 0) {
+      return dateCompare;
+    }
+
+    return String(right.updatedAt || right.savedAt || "").localeCompare(
+      String(left.updatedAt || left.savedAt || "")
+    );
+  })[0];
+}
+
+function getCurrentSnapshot(profile) {
+  const latestEntry = getLatestSavedEntry(profile);
+  if (latestEntry) {
+    return {
+      entry: latestEntry,
+      computed: computeForDraft(profile, latestEntry),
+      isSaved: true,
+    };
+  }
+
+  if (!profile) {
+    return null;
+  }
+
+  const draft = ensureDraft(profile);
+  return {
+    entry: draft,
+    computed: computeForDraft(profile, draft),
+    isSaved: false,
+  };
+}
+
 function _legacy_getActiveProfile() {
   return state.profiles.find((profile) => profile.id === state.activeProfileId) || state.profiles[0];
 }
@@ -1684,42 +1723,33 @@ function renderComputedSection() {
     return;
   }
 
-  const draft = ensureDraft(profile);
-  const computed = computeForDraft(profile, draft);
+  const snapshot = getCurrentSnapshot(profile);
+  if (!snapshot) {
+    breakdown.innerHTML = "";
+    return;
+  }
+  const computed = snapshot.computed;
 
   document.getElementById("eta-value").textContent = formatScore(computed.eta);
   document.getElementById("iota-value").textContent = formatScore(computed.iota);
   document.getElementById("eta-caption").textContent =
-    `Iota ${DAILY_SCORE_SYMBOL}: media pesata giornaliera delle quattro sfere.`;
+    snapshot.isSaved
+      ? `Iota ${DAILY_SCORE_SYMBOL}: ultima giornata salvata (${snapshot.entry.date}).`
+      : `Iota ${DAILY_SCORE_SYMBOL}: media pesata giornaliera delle quattro sfere.`;
   document.getElementById("iota-caption").textContent =
-    `Fi ${OVERALL_SCORE_SYMBOL}: valore complessivo con memoria breve, media e lunga.`;
+    snapshot.isSaved
+      ? `Fi ${OVERALL_SCORE_SYMBOL}: stato complessivo aggiornato alla data ${snapshot.entry.date}.`
+      : `Fi ${OVERALL_SCORE_SYMBOL}: valore complessivo con memoria breve, media e lunga.`;
   breakdown.innerHTML = "";
-
-  const summaryCard = document.createElement("article");
-  summaryCard.className = "breakdown-card breakdown-card-full";
-  summaryCard.innerHTML = `
-    <span>Periodo completo usato per Fi ${OVERALL_SCORE_SYMBOL}</span>
-    <strong>Oggi + ultimi ${profile.windows.longDays} giorni</strong>
-    <p class="breakdown-detail">
-      Baseline attivi: ${describeWindowRange(1, profile.windows.recentDays)} = ${formatScore(
-        profile.baselines.recent
-      )},
-      ${describeWindowRange(profile.windows.recentDays + 1, profile.windows.mediumDays)} = ${formatScore(
-        profile.baselines.medium
-      )},
-      ${describeWindowRange(profile.windows.mediumDays + 1, profile.windows.longDays)} = ${formatScore(
-        profile.baselines.long
-      )}.
-    </p>
-  `;
-  breakdown.appendChild(summaryCard);
 
   const cards = [
     {
-      label: "Giorno selezionato",
+      label: snapshot.isSaved ? "Ultima giornata salvata" : "Giorno selezionato",
       avg: computed.components.todayEta,
       weight: profile.iotaWeights.today,
-      detail: "Nessun baseline. Conta solo la media pesata dei 4 voti del giorno.",
+      detail: snapshot.isSaved
+        ? `Data ${snapshot.entry.date}. Nessun baseline: conta solo la media pesata dei 4 voti del giorno.`
+        : "Nessun baseline. Conta solo la media pesata dei 4 voti del giorno.",
       meta: "",
     },
     {
@@ -1765,6 +1795,52 @@ function renderComputedSection() {
     `;
     breakdown.appendChild(card);
   });
+
+  const note = document.createElement("p");
+  note.className = "breakdown-note";
+  note.textContent = `Periodo usato per Fi ${OVERALL_SCORE_SYMBOL}: oggi + ultimi ${profile.windows.longDays} giorni.`;
+  breakdown.appendChild(note);
+}
+
+function renderCurrentSnapshot() {
+  const profile = getActiveProfile();
+  const etaValue = document.getElementById("current-eta-value");
+  const iotaValue = document.getElementById("current-iota-value");
+  const etaCaption = document.getElementById("current-eta-caption");
+  const iotaCaption = document.getElementById("current-iota-caption");
+
+  if (!etaValue || !iotaValue || !etaCaption || !iotaCaption) {
+    return;
+  }
+
+  if (!profile) {
+    etaValue.textContent = "--";
+    iotaValue.textContent = "--";
+    etaCaption.textContent = "Nessuna giornata salvata.";
+    iotaCaption.textContent = "Salva una giornata per vedere lo stato attuale.";
+    return;
+  }
+
+  const snapshot = getCurrentSnapshot(profile);
+  if (!snapshot) {
+    etaValue.textContent = "--";
+    iotaValue.textContent = "--";
+    etaCaption.textContent = "Nessuna giornata salvata.";
+    iotaCaption.textContent = "Salva una giornata per vedere lo stato attuale.";
+    return;
+  }
+
+  etaValue.textContent = formatScore(snapshot.computed.eta);
+  iotaValue.textContent = formatScore(snapshot.computed.iota);
+
+  if (snapshot.isSaved) {
+    etaCaption.textContent = `Ultima iota salvata: ${snapshot.entry.date}`;
+    iotaCaption.textContent = `Stato complessivo aggiornato al ${snapshot.entry.date}`;
+    return;
+  }
+
+  etaCaption.textContent = "Nessuna giornata salvata. Valore provvisorio del draft.";
+  iotaCaption.textContent = "Salva la prima giornata per fissare lo stato attuale.";
 }
 
 function renderSettings() {
@@ -2130,6 +2206,8 @@ async function handleProfileDelete(profileId) {
       if (error) {
         throw error;
       }
+
+      await pullProfilesFromCloud({ silent: true });
     } catch (error) {
       console.warn("Errore eliminazione profilo cloud.", error);
       setCloudStatus(explainSupabaseError(error), "error");
@@ -2380,6 +2458,7 @@ function bindGlobalEvents() {
 
 function render() {
   renderCloudPanel();
+  renderCurrentSnapshot();
   renderProfileList();
   renderProfileBuilder();
   renderEntryForm();
